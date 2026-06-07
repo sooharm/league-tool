@@ -2,7 +2,7 @@
 
 import {
   formatMatchupRecord,
-  formatWinLossRecord,
+  formatWinLossUpsetRecord,
   type PlayerDetailStanding,
 } from "@/lib/player-stats";
 import { useMemo, useState } from "react";
@@ -154,7 +154,10 @@ export function PlayerStandingsTable({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-sm text-[var(--muted)]">
-          <p>세트 결과 기준 개인 전적 · 종족 상대 전적</p>
+          <p>
+            세트 결과 기준 개인 전적 · 종족 상대 전적 · 업셋은 자기보다 상위 티어(숫자가 작은
+            티어) 상대에게 이긴 횟수
+          </p>
           {Number.isFinite(minGamesValue) && minGamesValue > 0 ? (
             <p className="text-[var(--foreground)]">
               대상: 총 전적 {minGamesValue}전 이상
@@ -318,7 +321,7 @@ export function PlayerStandingsTable({
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-center">{row.games}</td>
                   <td className="whitespace-nowrap px-4 py-3 text-center">
-                    {formatWinLossRecord(row.wins, row.losses)}
+                    {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-center">
                     <span

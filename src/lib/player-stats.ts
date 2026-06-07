@@ -7,6 +7,7 @@ export type MatchupRecord = {
 };
 
 export type PlayerDetailStanding = PlayerStanding & {
+  upsets: number;
   vsZerg: MatchupRecord;
   vsProtoss: MatchupRecord;
   vsTerran: MatchupRecord;
@@ -82,6 +83,7 @@ export function calculatePlayerDetailStandings(
       tier: number;
       wins: number;
       losses: number;
+      upsets: number;
       vsZerg: MatchupRecord;
       vsProtoss: MatchupRecord;
       vsTerran: MatchupRecord;
@@ -101,6 +103,7 @@ export function calculatePlayerDetailStandings(
       tier: player.tier,
       wins: 0,
       losses: 0,
+      upsets: 0,
       vsZerg: createMatchupRecord(),
       vsProtoss: createMatchupRecord(),
       vsTerran: createMatchupRecord(),
@@ -116,19 +119,33 @@ export function calculatePlayerDetailStandings(
     matchId: string;
     winnerPlayerId: string;
     loserPlayerId: string;
+    winnerTier: number;
+    loserTier: number;
   }[] = [];
 
   for (const match of matches) {
     for (const set of match.sets) {
       if (!set.result) continue;
 
+      const result = set.result as typeof set.result & {
+        winnerPlayer?: { tier: number };
+        loserPlayer?: { tier: number };
+      };
+
+      const winnerTier =
+        result.winnerPlayer?.tier ?? stats.get(result.winnerPlayerId)?.tier ?? 0;
+      const loserTier =
+        result.loserPlayer?.tier ?? stats.get(result.loserPlayerId)?.tier ?? 0;
+
       events.push({
-        playedAt: set.result.playedAt,
+        playedAt: result.playedAt,
         week: match.week,
         orderIndex: set.orderIndex,
         matchId: match.id,
-        winnerPlayerId: set.result.winnerPlayerId,
-        loserPlayerId: set.result.loserPlayerId,
+        winnerPlayerId: result.winnerPlayerId,
+        loserPlayerId: result.loserPlayerId,
+        winnerTier,
+        loserTier,
       });
     }
   }
@@ -147,7 +164,12 @@ export function calculatePlayerDetailStandings(
     const loserRace = playerRaces.get(event.loserPlayerId);
     const winnerRace = playerRaces.get(event.winnerPlayerId);
 
-    if (winner) winner.wins += 1;
+    if (winner) {
+      winner.wins += 1;
+      if (event.winnerTier > event.loserTier) {
+        winner.upsets += 1;
+      }
+    }
     if (loser) loser.losses += 1;
 
     outcomes.get(event.winnerPlayerId)?.push("W");
@@ -191,4 +213,9 @@ export function formatMatchupRecord(record: MatchupRecord) {
 
 export function formatWinLossRecord(wins: number, losses: number) {
   return `${wins}승 ${losses}패`;
+}
+
+/** 총전적 + 업셋 횟수 (예: 4승 2패 (1)) */
+export function formatWinLossUpsetRecord(wins: number, losses: number, upsets: number) {
+  return `${wins}승 ${losses}패 (${upsets})`;
 }
