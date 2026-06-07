@@ -8,7 +8,15 @@ function parseAdminUserIds() {
     .filter(Boolean);
 }
 
-function staffRoleIds() {
+function parseStaffRoleIds() {
+  const combined = process.env.DISCORD_STAFF_ROLE_IDS ?? "";
+  if (combined.trim()) {
+    return combined
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+
   return [
     process.env.DISCORD_ROLE_CLAN_MASTER,
     process.env.DISCORD_ROLE_DEPUTY_MASTER,
@@ -23,7 +31,7 @@ export function isDiscordAdmin(discordUserId: string): boolean {
 export async function isDiscordStaffRole(discordUserId: string): Promise<boolean> {
   const guildId = process.env.DISCORD_GUILD_ID;
   const botToken = process.env.DISCORD_BOT_TOKEN;
-  const roleIds = staffRoleIds();
+  const roleIds = parseStaffRoleIds();
 
   if (!guildId || !botToken || roleIds.length === 0) {
     return false;
