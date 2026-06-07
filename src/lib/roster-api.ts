@@ -191,22 +191,30 @@ export async function linkPlayerDiscord(playerId: string, discordUserId: string 
   }
 
   if (discordUserId) {
-    const conflict = await prisma.player.findFirst({
+    const conflicts = await prisma.player.findMany({
       where: {
         discordUserId,
         id: { not: playerId },
       },
-      select: { nickname: true, isActive: true },
+      select: { id: true, nickname: true, isActive: true },
     });
 
-    if (conflict) {
-      const suffix = conflict.isActive
-        ? `${conflict.nickname} 선수에 이미 연결되어 있습니다.`
-        : `삭제된 ${conflict.nickname} 선수에 남아 있습니다. 해당 선수 Discord 연결을 먼저 해제해 주세요.`;
+    const activeConflict = conflicts.find((player) => player.isActive);
+    if (activeConflict) {
       return {
-        error: `이미 다른 선수에 연결된 Discord 계정입니다. (${suffix})`,
+        error: `이미 다른 선수에 연결된 Discord 계정입니다. (${activeConflict.nickname} 선수에 이미 연결되어 있습니다.)`,
         status: 400 as const,
       };
+    }
+
+    const inactiveConflictIds = conflicts
+      .filter((player) => !player.isActive)
+      .map((player) => player.id);
+    if (inactiveConflictIds.length > 0) {
+      await prisma.player.updateMany({
+        where: { id: { in: inactiveConflictIds } },
+        data: { discordUserId: null },
+      });
     }
   }
 
