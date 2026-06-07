@@ -8,6 +8,14 @@ function parseAdminUserIds() {
     .filter(Boolean);
 }
 
+function parseStaffUserIds() {
+  const raw = process.env.DISCORD_STAFF_USER_IDS ?? "";
+  return raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 function parseStaffRoleIds() {
   const combined = process.env.DISCORD_STAFF_ROLE_IDS ?? "";
   if (combined.trim()) {
@@ -26,6 +34,10 @@ function parseStaffRoleIds() {
 
 export function isDiscordAdmin(discordUserId: string): boolean {
   return parseAdminUserIds().includes(discordUserId);
+}
+
+export function isDiscordStaffUser(discordUserId: string): boolean {
+  return parseStaffUserIds().includes(discordUserId);
 }
 
 export async function isDiscordStaffRole(discordUserId: string): Promise<boolean> {
@@ -59,7 +71,7 @@ export async function isDiscordStaffRole(discordUserId: string): Promise<boolean
 }
 
 export async function isDiscordStaff(discordUserId: string): Promise<boolean> {
-  if (isDiscordAdmin(discordUserId)) {
+  if (isDiscordAdmin(discordUserId) || isDiscordStaffUser(discordUserId)) {
     return true;
   }
 

@@ -54,7 +54,8 @@ npm run dev
 | `DISCORD_CLIENT_SECRET` | Discord 앱 |
 | `AUTH_SECRET` | 랜덤 문자열 |
 | `AUTH_URL` | `https://프로젝트명.vercel.app` |
-| `DISCORD_ADMIN_USER_IDS` | 운영진 Discord ID |
+| `DISCORD_STAFF_USER_IDS` | 운영진 Discord User ID (쉼표 구분) |
+| `DISCORD_ADMIN_USER_IDS` | 관리자 Discord User ID (엔트리 포함) |
 
 4. 로컬에서 Neon DB 초기화 (최초 1회):
 

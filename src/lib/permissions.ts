@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
-import { isDiscordAdmin, isDiscordStaffRole } from "@/lib/discord-staff";
+import { isDiscordAdmin, isDiscordStaff } from "@/lib/discord-staff";
 import { isLeadershipRole } from "@/lib/entry";
 import { prisma } from "@/lib/prisma";
 import type { ActingRole } from "@/lib/entry";
@@ -51,7 +51,7 @@ export async function getAuthContext(): Promise<AuthContext | null> {
   });
 
   const isAdmin = isDiscordAdmin(discordUserId);
-  const isStaff = isAdmin || (await isDiscordStaffRole(discordUserId));
+  const isStaff = await isDiscordStaff(discordUserId);
 
   return {
     discordUserId,
