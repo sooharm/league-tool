@@ -112,6 +112,8 @@ export function RosterManager({ initialData }: { initialData: RosterData }) {
   const [addForm, setAddForm] = useState<PlayerForm>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<PlayerForm>(emptyForm);
+  const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
+  const [teamNameForm, setTeamNameForm] = useState("");
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/roster");
@@ -249,6 +251,41 @@ export function RosterManager({ initialData }: { initialData: RosterData }) {
       role: player.role,
     });
     setAddingTeamId(null);
+    setEditingTeamId(null);
+  }
+
+  function startTeamNameEdit(team: Team) {
+    setEditingTeamId(team.id);
+    setTeamNameForm(team.name);
+    setAddingTeamId(null);
+    setEditingId(null);
+  }
+
+  async function handleTeamNameUpdate(teamId: string) {
+    setLoading(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/roster/teams/${teamId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: teamNameForm }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        setError(json.error ?? "팀명 수정에 실패했습니다.");
+        return;
+      }
+
+      if (json.roster) setData(json.roster);
+      setEditingTeamId(null);
+      setMessage(`팀명이 "${json.team.name}"(으)로 변경되었습니다.`);
+    } catch {
+      setError("팀명 수정 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -292,18 +329,55 @@ export function RosterManager({ initialData }: { initialData: RosterData }) {
             className="rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
           >
             <div
-              className="flex items-center justify-between border-b border-[var(--card-border)] px-4 py-3"
+              className="flex items-center justify-between gap-2 border-b border-[var(--card-border)] px-4 py-3"
               style={{ color: team.color }}
             >
-              <span className="font-bold">{team.name}</span>
+              {editingTeamId === team.id ? (
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    value={teamNameForm}
+                    onChange={(event) => setTeamNameForm(event.target.value)}
+                    maxLength={50}
+                    className={`min-w-0 flex-1 ${FORM_SELECT_CLASS}`}
+                  />
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => void handleTeamNameUpdate(team.id)}
+                    className="rounded border border-[var(--accent)] px-2 py-0.5 text-xs text-[var(--accent)] disabled:opacity-50"
+                  >
+                    저장
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingTeamId(null)}
+                    className="rounded border border-[var(--card-border)] px-2 py-0.5 text-xs text-[var(--foreground)]"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate font-bold">{team.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => startTeamNameEdit(team)}
+                    className="shrink-0 rounded border border-[var(--card-border)] px-2 py-0.5 text-xs text-[var(--foreground)] hover:border-[var(--accent)]"
+                  >
+                    팀명 수정
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => {
                   setAddingTeamId(team.id);
                   setAddForm(emptyForm());
                   setEditingId(null);
+                  setEditingTeamId(null);
                 }}
-                className="rounded border border-[var(--card-border)] px-2 py-0.5 text-xs text-[var(--foreground)] hover:border-[var(--accent)]"
+                className="shrink-0 rounded border border-[var(--card-border)] px-2 py-0.5 text-xs text-[var(--foreground)] hover:border-[var(--accent)]"
               >
                 + 선수
               </button>

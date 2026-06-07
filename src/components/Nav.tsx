@@ -1,6 +1,7 @@
 import { DiscordAuthButton } from "@/components/DiscordAuthButton";
 import { SeasonSwitcher } from "@/components/SeasonSwitcher";
 import { auth } from "@/auth";
+import { isDevStaffBypassEnabled } from "@/lib/dev-auth";
 import { SITE_TITLE } from "@/lib/season-selection";
 import Link from "next/link";
 
@@ -38,7 +39,13 @@ export async function Nav({
             </h1>
             <SeasonSwitcher seasons={seasons} selectedSlug={selectedSeasonSlug} />
           </div>
-          <DiscordAuthButton session={session} />
+          {isDevStaffBypassEnabled() ? (
+            <span className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-200">
+              로컬 운영진
+            </span>
+          ) : (
+            <DiscordAuthButton session={session} />
+          )}
         </div>
         <nav className="flex flex-wrap gap-2">
           {links.map((link) => (

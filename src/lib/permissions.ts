@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
 import { isDiscordStaff } from "@/lib/discord-staff";
 import { isLeadershipRole } from "@/lib/entry";
 import { prisma } from "@/lib/prisma";
@@ -27,6 +28,10 @@ export type MatchPermissionSnapshot = {
 };
 
 export async function getAuthContext(): Promise<AuthContext | null> {
+  if (isDevStaffBypassEnabled()) {
+    return getDevStaffAuthContext();
+  }
+
   const session = await auth();
   const discordUserId = session?.user?.id;
 

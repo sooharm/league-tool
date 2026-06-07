@@ -42,22 +42,14 @@ if not exist "prisma\dev.db" (
 )
 
 echo.
-echo 기존 서버 종료 및 캐시 정리 중...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do (
-    taskkill /F /PID %%a >nul 2>&1
-)
-if exist ".next\" (
-    rmdir /s /q ".next"
-)
-
-echo.
 echo ========================================
 echo   서버 시작: http://localhost:3000
 echo   Ready 가 나오면 브라우저에서 접속
+echo   화면이 깨지면 Ctrl+C 후 start.bat 다시 실행
 echo   종료: 이 창에서 Ctrl+C
 echo ========================================
 echo.
 
-call npm run dev
+call npm run dev:clean
 
 pause

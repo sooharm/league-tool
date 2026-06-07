@@ -184,6 +184,44 @@ export async function linkPlayerDiscord(playerId: string, discordUserId: string 
   return { player };
 }
 
+export async function updateTeamName(teamId: string, name: string) {
+  const trimmed = name.trim();
+  if (!trimmed) {
+    return { error: "팀명을 입력해 주세요.", status: 400 as const };
+  }
+  if (trimmed.length > 50) {
+    return { error: "팀명은 50자 이하여야 합니다.", status: 400 as const };
+  }
+
+  const team = await prisma.team.findUnique({ where: { id: teamId } });
+  if (!team) {
+    return { error: "팀을 찾을 수 없습니다.", status: 404 as const };
+  }
+
+  if (trimmed === team.name) {
+    return { team: { id: team.id, name: team.name } };
+  }
+
+  const duplicate = await prisma.team.findFirst({
+    where: {
+      seasonId: team.seasonId,
+      name: trimmed,
+      NOT: { id: teamId },
+    },
+  });
+  if (duplicate) {
+    return { error: "같은 시즌에 이미 사용 중인 팀명입니다.", status: 400 as const };
+  }
+
+  const updated = await prisma.team.update({
+    where: { id: teamId },
+    data: { name: trimmed },
+    select: { id: true, name: true },
+  });
+
+  return { team: updated };
+}
+
 export async function parseAndUpdatePlayer(playerId: string, body: unknown) {
   const parsed = parsePlayerInput(body);
   if ("error" in parsed) {
