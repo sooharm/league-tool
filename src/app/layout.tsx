@@ -4,7 +4,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "스타크래프트 팀/프로리그 Tool",
+  title: "스타크래프트 리그 Tool",
   description: "나무클랜 프로(팀)리그 순위 및 일정 관리",
 };
 

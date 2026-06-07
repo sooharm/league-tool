@@ -1,6 +1,6 @@
 export const SEASON_COOKIE = "seasonSlug";
 
-export const SITE_TITLE = "스타크래프트 팀/프로리그 Tool";
+export const SITE_TITLE = "스타크래프트 리그 Tool";
 export const LEAGUE_PREFIX = "나무클랜 프로(팀)리그";
 
 export function seasonNumberFromSlug(slug: string) {
