@@ -146,7 +146,7 @@ export function PlayerStandingsTable({
     { key: "vsProtoss", header: "프로토스전", className: "min-w-[5.5rem]" },
     { key: "vsTerran", header: "테란전", className: "min-w-[4.5rem]" },
     { key: "games", header: "총경기수", className: "min-w-[5rem]" },
-    { key: "wins", header: "총전적", className: "min-w-[4.5rem]" },
+    { key: "wins", header: "총전적 (업셋횟수)", className: "min-w-[6.5rem]" },
     { key: "winRate", header: "승률", className: "min-w-[4rem]" },
   ];
 
