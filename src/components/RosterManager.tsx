@@ -148,9 +148,9 @@ export function RosterManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ discordUserId }),
       });
-      const json = await response.json();
+      const json = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) {
-        setError(json.error ?? "Discord 연결에 실패했습니다.");
+        setError(json.error ?? `Discord 연결에 실패했습니다. (${response.status})`);
         return;
       }
 
@@ -176,9 +176,12 @@ export function RosterManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, ...addForm }),
       });
-      const json = await response.json();
+      const json = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        roster?: RosterData;
+      };
       if (!response.ok) {
-        setError(json.error ?? "선수 추가에 실패했습니다.");
+        setError(json.error ?? `선수 추가에 실패했습니다. (${response.status})`);
         return;
       }
       if (json.roster) setData(json.roster);
@@ -186,7 +189,7 @@ export function RosterManager({
       setAddingTeamId(null);
       setAddForm(emptyForm());
     } catch {
-      setError("선수 추가 중 오류가 발생했습니다.");
+      setError("선수 추가 중 오류가 발생했습니다. Discord 로그인 상태를 확인해 주세요.");
     } finally {
       setLoading(false);
     }

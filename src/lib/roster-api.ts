@@ -49,6 +49,12 @@ async function clearConflictingRoles(
   });
 }
 
+function freedInactiveNickname(nickname: string, playerId: string) {
+  const suffix = `#${playerId.slice(-4)}`;
+  const maxBase = Math.max(1, 30 - suffix.length);
+  return `${nickname.slice(0, maxBase)}${suffix}`;
+}
+
 export async function createPlayer(teamId: string, input: PlayerInput) {
   const team = await prisma.team.findUnique({ where: { id: teamId } });
   if (!team) {
@@ -56,10 +62,26 @@ export async function createPlayer(teamId: string, input: PlayerInput) {
   }
 
   const duplicate = await prisma.player.findFirst({
-    where: { teamId, nickname: input.nickname, isActive: true },
+    where: { teamId, nickname: input.nickname },
   });
   if (duplicate) {
-    return { error: "같은 팀에 동일한 닉네임이 있습니다.", status: 400 as const };
+    if (duplicate.isActive) {
+      return { error: "같은 팀에 동일한 닉네임이 있습니다.", status: 400 as const };
+    }
+
+    await clearConflictingRoles(teamId, input.role, duplicate.id);
+
+    const player = await prisma.player.update({
+      where: { id: duplicate.id },
+      data: {
+        race: input.race,
+        tier: input.tier,
+        role: input.role,
+        isActive: true,
+      },
+    });
+
+    return { player };
   }
 
   await clearConflictingRoles(teamId, input.role);
@@ -87,12 +109,17 @@ export async function updatePlayer(playerId: string, input: PlayerInput) {
     where: {
       teamId: existing.teamId,
       nickname: input.nickname,
-      isActive: true,
       id: { not: playerId },
     },
   });
   if (duplicate) {
-    return { error: "같은 팀에 동일한 닉네임이 있습니다.", status: 400 as const };
+    if (duplicate.isActive) {
+      return { error: "같은 팀에 동일한 닉네임이 있습니다.", status: 400 as const };
+    }
+    return {
+      error: "삭제된 선수와 닉네임이 겹칩니다. 다른 닉네임을 사용하거나 삭제된 선수를 복구해 주세요.",
+      status: 400 as const,
+    };
   }
 
   await clearConflictingRoles(existing.teamId, input.role, playerId);
@@ -136,7 +163,11 @@ export async function removePlayer(playerId: string) {
   if (hasHistory) {
     await prisma.player.update({
       where: { id: playerId },
-      data: { isActive: false },
+      data: {
+        isActive: false,
+        discordUserId: null,
+        nickname: freedInactiveNickname(existing.nickname, playerId),
+      },
     });
     return { softDeleted: true };
   }
@@ -163,14 +194,17 @@ export async function linkPlayerDiscord(playerId: string, discordUserId: string 
     const conflict = await prisma.player.findFirst({
       where: {
         discordUserId,
-        isActive: true,
         id: { not: playerId },
       },
+      select: { nickname: true, isActive: true },
     });
 
     if (conflict) {
+      const suffix = conflict.isActive
+        ? `${conflict.nickname} 선수에 이미 연결되어 있습니다.`
+        : `삭제된 ${conflict.nickname} 선수에 남아 있습니다. 해당 선수 Discord 연결을 먼저 해제해 주세요.`;
       return {
-        error: "이미 다른 선수에 연결된 Discord 계정입니다.",
+        error: `이미 다른 선수에 연결된 Discord 계정입니다. (${suffix})`,
         status: 400 as const,
       };
     }

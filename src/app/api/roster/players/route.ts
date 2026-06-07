@@ -8,8 +8,17 @@ export async function POST(request: Request) {
     return authResult;
   }
 
-  const body = await request.json();
-  const teamId = typeof body?.teamId === "string" ? body.teamId : null;
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
+  }
+
+  const teamId =
+    body && typeof body === "object" && typeof (body as { teamId?: unknown }).teamId === "string"
+      ? (body as { teamId: string }).teamId
+      : null;
 
   if (!teamId) {
     return NextResponse.json({ error: "팀을 선택해주세요." }, { status: 400 });
