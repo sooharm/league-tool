@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
-import { isDiscordStaff } from "@/lib/discord-staff";
+import { isDiscordAdmin, isDiscordStaffRole } from "@/lib/discord-staff";
 import { isLeadershipRole } from "@/lib/entry";
 import { prisma } from "@/lib/prisma";
 import type { ActingRole } from "@/lib/entry";
@@ -17,6 +17,7 @@ export type AuthPlayer = {
 export type AuthContext = {
   discordUserId: string;
   player: AuthPlayer | null;
+  isAdmin: boolean;
   isStaff: boolean;
 };
 
@@ -49,11 +50,13 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     },
   });
 
-  const isStaff = await isDiscordStaff(discordUserId);
+  const isAdmin = isDiscordAdmin(discordUserId);
+  const isStaff = isAdmin || (await isDiscordStaffRole(discordUserId));
 
   return {
     discordUserId,
     player,
+    isAdmin,
     isStaff,
   };
 }
@@ -88,6 +91,62 @@ export async function requireStaffContext(): Promise<AuthContext | NextResponse>
   return context;
 }
 
+export function isTeamLeader(context: AuthContext | null) {
+  return Boolean(context?.player && isLeadershipRole(context.player.role));
+}
+
+export function canManageRoster(context: AuthContext | null) {
+  return Boolean(context?.isStaff || isTeamLeader(context));
+}
+
+export function assertRosterTeamPermission(
+  context: AuthContext,
+  teamId: string,
+): NextResponse | null {
+  if (context.isStaff) {
+    return null;
+  }
+
+  if (
+    context.player &&
+    isLeadershipRole(context.player.role) &&
+    context.player.teamId === teamId
+  ) {
+    return null;
+  }
+
+  return forbidden("자신의 팀 로스터만 관리할 수 있습니다.");
+}
+
+export async function requireRosterContext(): Promise<AuthContext | NextResponse> {
+  const context = await requireAuthContext();
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
+  if (!canManageRoster(context)) {
+    return forbidden("팀장·부팀장 또는 운영진만 로스터를 관리할 수 있습니다.");
+  }
+
+  return context;
+}
+
+export async function assertPlayerRosterPermission(
+  context: AuthContext,
+  playerId: string,
+): Promise<NextResponse | null> {
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { teamId: true, isActive: true },
+  });
+
+  if (!player || !player.isActive) {
+    return NextResponse.json({ error: "선수를 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  return assertRosterTeamPermission(context, player.teamId);
+}
+
 export function canManageStaffTools(context: AuthContext | null) {
   return Boolean(context?.isStaff);
 }
@@ -101,7 +160,7 @@ export function assertEntryEditPermission(
   match: { homeTeamId: string; awayTeamId: string },
   teamId: string,
 ): NextResponse | null {
-  if (context.isStaff) {
+  if (context.isAdmin) {
     if (teamId !== match.homeTeamId && teamId !== match.awayTeamId) {
       return forbidden("이 경기의 팀이 아닙니다.");
     }
@@ -190,8 +249,8 @@ export async function getMatchPermissions(
 
   return {
     matchId: match.id,
-    canEditEntry: context.isStaff || entryTeamId !== null,
+    canEditEntry: context.isAdmin || entryTeamId !== null,
     canEditResults,
-    entryTeamId: context.isStaff ? null : entryTeamId,
+    entryTeamId: context.isAdmin ? null : entryTeamId,
   };
 }

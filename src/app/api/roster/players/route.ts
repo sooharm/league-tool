@@ -1,9 +1,9 @@
 import { parseAndCreatePlayer } from "@/lib/roster-api";
-import { requireStaffContext } from "@/lib/permissions";
+import { assertRosterTeamPermission, requireRosterContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireRosterContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
@@ -13,6 +13,11 @@ export async function POST(request: Request) {
 
   if (!teamId) {
     return NextResponse.json({ error: "팀을 선택해주세요." }, { status: 400 });
+  }
+
+  const permissionError = assertRosterTeamPermission(authResult, teamId);
+  if (permissionError) {
+    return permissionError;
   }
 
   const result = await parseAndCreatePlayer(teamId, body);

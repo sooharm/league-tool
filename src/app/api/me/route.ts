@@ -1,4 +1,4 @@
-import { getAuthContext, getMatchPermissions } from "@/lib/permissions";
+import { canManageRoster, getAuthContext, getMatchPermissions } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -9,6 +9,7 @@ export async function GET(request: Request) {
   if (!context) {
     return NextResponse.json({
       loggedIn: false,
+      isAdmin: false,
       isStaff: false,
       player: null,
       canManageRoster: false,
@@ -23,9 +24,10 @@ export async function GET(request: Request) {
   return NextResponse.json({
     loggedIn: true,
     discordUserId: context.discordUserId,
+    isAdmin: context.isAdmin,
     isStaff: context.isStaff,
     player: context.player,
-    canManageRoster: context.isStaff,
+    canManageRoster: canManageRoster(context),
     canManageSchedule: context.isStaff,
     canEditRules: context.isStaff,
     match,

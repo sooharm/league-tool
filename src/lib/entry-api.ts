@@ -88,7 +88,7 @@ export function buildEntryResponse({
   slots,
   viewerTeamId,
   viewerRole,
-  isStaff = false,
+  isAdmin = false,
 }: {
   entry: {
     id: string;
@@ -128,14 +128,14 @@ export function buildEntryResponse({
   }[];
   viewerTeamId: string | null;
   viewerRole: ActingRole;
-  isStaff?: boolean;
+  isAdmin?: boolean;
 }) {
   const ctx = toEntryContext(entry, match);
   const published = isPublished(ctx);
   const canViewHome =
-    isStaff || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.homeTeamId);
+    isAdmin || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.homeTeamId);
   const canViewAway =
-    isStaff || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.awayTeamId);
+    isAdmin || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.awayTeamId);
 
   const homeSlots = canViewHome
     ? slots
@@ -176,24 +176,26 @@ export function buildEntryResponse({
       awayHidden: !canViewAway,
     },
     permissions: {
-      isStaff,
-      canEditHome: isStaff
+      isAdmin,
+      canEditHome: isAdmin
         ? canEditEntry(ctx, match.homeTeamId)
         : viewerTeamId === match.homeTeamId &&
           canSaveOrConfirm(ctx, match.homeTeamId, viewerRole),
-      canEditAway: isStaff
+      canEditAway: isAdmin
         ? canEditEntry(ctx, match.awayTeamId)
         : viewerTeamId === match.awayTeamId &&
           canSaveOrConfirm(ctx, match.awayTeamId, viewerRole),
-      canSave: isStaff
+      canSave: isAdmin
         ? !published
         : !!viewerTeamId && canSaveOrConfirm(ctx, viewerTeamId, viewerRole),
-      canConfirm: isStaff
+      canConfirm: isAdmin
         ? !published
         : !!viewerTeamId && canSaveOrConfirm(ctx, viewerTeamId, viewerRole),
-      viewOnly: published && (!isStaff && (!viewerTeamId || viewerRole === "MEMBER" || viewerRole === null)),
+      viewOnly:
+        published &&
+        (!isAdmin && (!viewerTeamId || viewerRole === "MEMBER" || viewerRole === null)),
       needsSelection:
-        !published && !isStaff && (!viewerTeamId || !isLeadershipRole(viewerRole)),
+        !published && !isAdmin && (!viewerTeamId || !isLeadershipRole(viewerRole)),
       isPublic: published,
     },
   };

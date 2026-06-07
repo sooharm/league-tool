@@ -1,16 +1,21 @@
 import { linkPlayerDiscord } from "@/lib/roster-api";
-import { requireStaffContext } from "@/lib/permissions";
+import { assertPlayerRosterPermission, requireRosterContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ playerId: string }> };
 
 export async function PUT(request: Request, context: RouteContext) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireRosterContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
 
   const { playerId } = await context.params;
+
+  const permissionError = await assertPlayerRosterPermission(authResult, playerId);
+  if (permissionError) {
+    return permissionError;
+  }
 
   let body: { discordUserId?: string | null };
   try {

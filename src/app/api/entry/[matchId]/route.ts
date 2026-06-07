@@ -43,7 +43,7 @@ export async function GET(_request: Request, context: RouteContext) {
       slots,
       viewerTeamId,
       viewerRole,
-      isStaff: auth?.isStaff ?? false,
+      isAdmin: auth?.isAdmin ?? false,
     }),
   );
 }
@@ -91,7 +91,7 @@ export async function PUT(request: Request, context: RouteContext) {
     return permissionError;
   }
 
-  if (!authResult.isStaff && !canSaveOrConfirm(ctx, teamId, viewerRole)) {
+  if (!authResult.isAdmin && !canSaveOrConfirm(ctx, teamId, viewerRole)) {
     return NextResponse.json({ error: "저장 권한이 없습니다." }, { status: 403 });
   }
 
@@ -122,7 +122,7 @@ export async function PUT(request: Request, context: RouteContext) {
       slots: updated.entry.slots,
       viewerTeamId: teamId,
       viewerRole,
-      isStaff: authResult.isStaff,
+      isAdmin: authResult.isAdmin,
     }),
   );
 }

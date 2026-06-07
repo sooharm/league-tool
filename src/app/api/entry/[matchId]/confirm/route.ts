@@ -36,7 +36,7 @@ export async function POST(request: Request, context: RouteContext) {
   const teamId = body.teamId;
   const viewerRole = authResult.player?.role ?? null;
   const confirmedBy =
-    body.confirmedBy?.trim() || authResult.player?.nickname || (authResult.isStaff ? "운영진" : undefined);
+    body.confirmedBy?.trim() || authResult.player?.nickname || (authResult.isAdmin ? "관리자" : undefined);
 
   if (!teamId || !confirmedBy) {
     return NextResponse.json({ error: "teamId와 confirmedBy가 필요합니다." }, { status: 400 });
@@ -59,7 +59,7 @@ export async function POST(request: Request, context: RouteContext) {
     return permissionError;
   }
 
-  if (!authResult.isStaff && !canSaveOrConfirm(ctx, teamId, viewerRole)) {
+  if (!authResult.isAdmin && !canSaveOrConfirm(ctx, teamId, viewerRole)) {
     return NextResponse.json({ error: "확정 권한이 없습니다." }, { status: 403 });
   }
 
@@ -88,7 +88,7 @@ export async function POST(request: Request, context: RouteContext) {
       slots: refreshed.entry.slots,
       viewerTeamId: teamId,
       viewerRole,
-      isStaff: authResult.isStaff,
+      isAdmin: authResult.isAdmin,
     }),
   );
 }

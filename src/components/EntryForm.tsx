@@ -61,7 +61,7 @@ type EntryResponse = {
     awayHidden: boolean;
   };
   permissions: {
-    isStaff: boolean;
+    isAdmin: boolean;
     canEditHome: boolean;
     canEditAway: boolean;
     canSave: boolean;
@@ -116,6 +116,7 @@ function mergeSlotMaps(previous: Record<string, string>, next: Record<string, st
 
 type MeResponse = {
   loggedIn: boolean;
+  isAdmin?: boolean;
   isStaff?: boolean;
   player: { nickname: string; role: PlayerRole; teamId: string } | null;
 };
@@ -167,23 +168,23 @@ export function EntryForm({ matchId }: { matchId: string }) {
   useEffect(() => {
     if (me?.player?.nickname) {
       setConfirmedBy(me.player.nickname);
-    } else if (me?.isStaff) {
-      setConfirmedBy("운영진");
+    } else if (me?.isAdmin) {
+      setConfirmedBy("관리자");
     }
-  }, [me?.player, me?.isStaff]);
+  }, [me?.player, me?.isAdmin]);
 
-  const staffEditingBoth = Boolean(
-    data?.permissions.isStaff &&
+  const adminEditingBoth = Boolean(
+    data?.permissions.isAdmin &&
       data.permissions.canEditHome &&
       data.permissions.canEditAway,
   );
 
   const editingTeamId = useMemo(() => {
-    if (!data || staffEditingBoth) return null;
+    if (!data || adminEditingBoth) return null;
     if (data.permissions.canEditHome) return data.match.homeTeam.id;
     if (data.permissions.canEditAway) return data.match.awayTeam.id;
     return null;
-  }, [data, staffEditingBoth]);
+  }, [data, adminEditingBoth]);
 
   async function persistTeamSlots(
     teamId: string,
@@ -210,7 +211,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
       throw new Error("저장할 팀 정보가 없습니다.");
     }
 
-    if (staffEditingBoth) {
+    if (adminEditingBoth) {
       let last = await persistTeamSlots(data.match.homeTeam.id, homeSelections);
       applyEntryResponse(last);
       last = await persistTeamSlots(data.match.awayTeam.id, awaySelections);
@@ -234,7 +235,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
   }
 
   async function handleSave() {
-    if (!staffEditingBoth && !editingTeamId) return;
+    if (!adminEditingBoth && !editingTeamId) return;
 
     setSaving(true);
     setMessage(null);
@@ -273,14 +274,14 @@ export function EntryForm({ matchId }: { matchId: string }) {
 
   async function handleConfirm() {
     if (!data || !confirmedBy.trim()) return;
-    if (!staffEditingBoth && !editingTeamId) return;
+    if (!adminEditingBoth && !editingTeamId) return;
 
     setSaving(true);
     setMessage(null);
     setError(null);
 
     try {
-      if (staffEditingBoth) {
+      if (adminEditingBoth) {
         if (data.permissions.canEditHome) {
           await confirmTeam(data.match.homeTeam.id, homeSelections);
         }
@@ -407,9 +408,13 @@ export function EntryForm({ matchId }: { matchId: string }) {
                 로그인
               </Link>
             </p>
-          ) : me.isStaff ? (
+          ) : me.isStaff && !me.isAdmin ? (
+            <p className="text-[var(--muted)]">
+              운영진은 엔트리를 수정할 수 없습니다. 해당 팀 팀장·부팀장에게 요청하세요.
+            </p>
+          ) : me.isAdmin ? (
             <p className="text-[var(--foreground)]">
-              운영진 권한으로 양팀 엔트리를 관리할 수 있습니다.
+              관리자 권한으로 양팀 엔트리를 관리할 수 있습니다.
             </p>
           ) : !me.player ? (
             <p className="text-[var(--muted)]">
@@ -491,7 +496,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
                       setHomeSelections,
                       slots.homeHidden,
                       permissions.canEditHome &&
-                        (staffEditingBoth || editingTeamId === match.homeTeam.id),
+                        (adminEditingBoth || editingTeamId === match.homeTeam.id),
                       slots.home,
                     )}
                   </td>
@@ -503,7 +508,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
                       setAwaySelections,
                       slots.awayHidden,
                       permissions.canEditAway &&
-                        (staffEditingBoth || editingTeamId === match.awayTeam.id),
+                        (adminEditingBoth || editingTeamId === match.awayTeam.id),
                       slots.away,
                     )}
                   </td>

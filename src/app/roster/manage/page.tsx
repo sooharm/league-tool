@@ -1,24 +1,27 @@
-import { StaffGate } from "@/components/StaffGate";
+import { RosterGate } from "@/components/RosterGate";
 import { RosterManager } from "@/components/RosterManager";
+import { getAuthContext } from "@/lib/permissions";
 import { getActiveSeasonRoster } from "@/lib/roster-api";
 
 export default async function RosterManagePage() {
   const roster = await getActiveSeasonRoster();
+  const auth = await getAuthContext();
+  const managedTeamId = auth?.isStaff ? null : (auth?.player?.teamId ?? null);
 
   if (!roster) {
     return (
-      <StaffGate title="로스터 관리">
+      <RosterGate title="로스터 관리">
         <p className="text-[var(--muted)]">활성 시즌이 없습니다.</p>
-      </StaffGate>
+      </RosterGate>
     );
   }
 
   return (
-    <StaffGate
+    <RosterGate
       title="로스터 관리"
       description="팀별 선수 등록 · 수정 · Discord 계정 연결"
     >
-      <RosterManager initialData={roster} />
-    </StaffGate>
+      <RosterManager initialData={roster} managedTeamId={managedTeamId} />
+    </RosterGate>
   );
 }

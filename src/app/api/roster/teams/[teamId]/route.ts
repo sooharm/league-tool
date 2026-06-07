@@ -1,16 +1,21 @@
-import { requireStaffContext } from "@/lib/permissions";
+import { assertRosterTeamPermission, requireRosterContext } from "@/lib/permissions";
 import { getActiveSeasonRoster, updateTeamName } from "@/lib/roster-api";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ teamId: string }> };
 
 export async function PUT(request: Request, context: RouteContext) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireRosterContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
 
   const { teamId } = await context.params;
+
+  const permissionError = assertRosterTeamPermission(authResult, teamId);
+  if (permissionError) {
+    return permissionError;
+  }
 
   let body: { name?: string };
   try {

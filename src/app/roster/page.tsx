@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/PageShell";
 import { getActiveSeason } from "@/lib/data";
-import { canManageStaffTools, getAuthContext } from "@/lib/permissions";
+import { canManageRoster, getAuthContext } from "@/lib/permissions";
 import { roleLabel } from "@/lib/roster";
 
 const tierColors: Record<number, string> = {
@@ -26,7 +26,7 @@ export default async function RosterPage() {
 
   return (
     <PageShell title="로스터" description={`${season.teams.length}개 팀 · 티어별 선수 목록`}>
-      {canManageStaffTools(auth) ? (
+      {canManageRoster(auth) ? (
         <div className="mb-6">
           <Link
             href="/roster/manage"

@@ -14,6 +14,7 @@ export function getDevStaffAuthContext(): AuthContext {
   return {
     discordUserId: DEV_STAFF_DISCORD_ID,
     player: null,
+    isAdmin: true,
     isStaff: true,
   };
 }

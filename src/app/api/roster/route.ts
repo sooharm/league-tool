@@ -1,9 +1,9 @@
 import { getActiveSeasonRoster } from "@/lib/roster-api";
-import { requireStaffContext } from "@/lib/permissions";
+import { requireRosterContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const authResult = await requireStaffContext();
+  const authResult = await requireRosterContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }

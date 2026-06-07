@@ -16,11 +16,11 @@ function staffRoleIds() {
   ].filter((value): value is string => Boolean(value));
 }
 
-export async function isDiscordStaff(discordUserId: string): Promise<boolean> {
-  if (parseAdminUserIds().includes(discordUserId)) {
-    return true;
-  }
+export function isDiscordAdmin(discordUserId: string): boolean {
+  return parseAdminUserIds().includes(discordUserId);
+}
 
+export async function isDiscordStaffRole(discordUserId: string): Promise<boolean> {
   const guildId = process.env.DISCORD_GUILD_ID;
   const botToken = process.env.DISCORD_BOT_TOKEN;
   const roleIds = staffRoleIds();
@@ -48,4 +48,12 @@ export async function isDiscordStaff(discordUserId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+export async function isDiscordStaff(discordUserId: string): Promise<boolean> {
+  if (isDiscordAdmin(discordUserId)) {
+    return true;
+  }
+
+  return isDiscordStaffRole(discordUserId);
 }

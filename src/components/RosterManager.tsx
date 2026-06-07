@@ -100,7 +100,13 @@ function PlayerFields({
   );
 }
 
-export function RosterManager({ initialData }: { initialData: RosterData }) {
+export function RosterManager({
+  initialData,
+  managedTeamId = null,
+}: {
+  initialData: RosterData;
+  managedTeamId?: string | null;
+}) {
   const [data, setData] = useState(initialData);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -288,11 +294,16 @@ export function RosterManager({ initialData }: { initialData: RosterData }) {
     }
   }
 
+  const visibleTeams = managedTeamId
+    ? data.teams.filter((team) => team.id === managedTeamId)
+    : data.teams;
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-[var(--muted)]">
-          {data.season.name} · {data.teams.length}개 팀
+          {data.season.name} · {visibleTeams.length}개 팀
+          {managedTeamId ? " (내 팀)" : ""}
         </p>
         <div className="flex gap-2">
           <button
@@ -323,7 +334,7 @@ export function RosterManager({ initialData }: { initialData: RosterData }) {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {data.teams.map((team) => (
+        {visibleTeams.map((team) => (
           <section
             key={team.id}
             className="rounded-xl border border-[var(--card-border)] bg-[var(--card)]"
