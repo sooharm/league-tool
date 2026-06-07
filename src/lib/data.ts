@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { SEASON_COOKIE } from "@/lib/season-selection";
+import { cookies } from "next/headers";
 import { isVisibleOnScheduleTab } from "@/lib/schedule";
 import { calculateMapStats } from "@/lib/map-stats";
 import { buildDbStatsPayload } from "@/lib/race-matrix-stats";
@@ -31,21 +33,40 @@ const matchInclude = {
   },
 };
 
-export async function getActiveSeason() {
-  return prisma.season.findFirst({
-    where: { isActive: true },
+const seasonWithTeamsInclude = {
+  teams: {
+    orderBy: { sortOrder: "asc" as const },
     include: {
-      teams: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          players: {
-            where: { isActive: true },
-            orderBy: [{ tier: "asc" }, { nickname: "asc" }],
-          },
-        },
+      players: {
+        where: { isActive: true },
+        orderBy: [{ tier: "asc" as const }, { nickname: "asc" as const }],
       },
     },
+  },
+};
+
+export async function getSelectedSeason() {
+  const cookieStore = await cookies();
+  const slug = cookieStore.get(SEASON_COOKIE)?.value;
+
+  if (slug) {
+    const selected = await prisma.season.findUnique({
+      where: { slug },
+      include: seasonWithTeamsInclude,
+    });
+    if (selected) {
+      return selected;
+    }
+  }
+
+  return prisma.season.findFirst({
+    where: { isActive: true },
+    include: seasonWithTeamsInclude,
   });
+}
+
+export async function getActiveSeason() {
+  return getSelectedSeason();
 }
 
 export async function getSeasonBySlug(slug: string) {

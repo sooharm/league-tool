@@ -12,12 +12,14 @@
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
     "db:sync-schedule": "tsx prisma/sync-schedule.ts",
-    "db:setup": "prisma db push && tsx prisma/seed.ts"
+    "db:setup": "prisma db push && tsx prisma/seed.ts",
+    "db:migrate-sqlite": "tsx prisma/migrate-sqlite-to-neon.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.9.0",
     "next": "^15.3.3",
     "next-auth": "^5.0.0-beta.25",
+    "prisma": "^6.9.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
@@ -25,12 +27,13 @@
     "@eslint/eslintrc": "^3.3.1",
     "@next/swc-wasm-nodejs": "^16.2.7",
     "@tailwindcss/postcss": "^4.1.8",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.29",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.5",
+    "better-sqlite3": "^12.10.0",
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.3.3",
-    "prisma": "^6.9.0",
     "tailwindcss": "^4.1.8",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"

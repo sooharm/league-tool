@@ -1,11 +1,17 @@
+import { getSelectedSeason } from "@/lib/data";
 import { DEFAULT_RULES_TEXT } from "@/lib/default-rules";
 import { prisma } from "@/lib/prisma";
 import { requireStaffContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 async function getActiveSeason() {
-  return prisma.season.findFirst({
-    where: { isActive: true },
+  const season = await getSelectedSeason();
+  if (!season) {
+    return null;
+  }
+
+  return prisma.season.findUnique({
+    where: { id: season.id },
     select: { id: true, name: true, rulesText: true },
   });
 }

@@ -1,5 +1,5 @@
 import { Nav } from "@/components/Nav";
-import { getActiveSeason } from "@/lib/data";
+import { getAllSeasons, getSelectedSeason } from "@/lib/data";
 
 export async function PageShell({
   title,
@@ -10,11 +10,14 @@ export async function PageShell({
   description?: string;
   children: React.ReactNode;
 }) {
-  const season = await getActiveSeason();
+  const [season, seasons] = await Promise.all([getSelectedSeason(), getAllSeasons()]);
 
   return (
     <div className="min-h-screen">
-      <Nav seasonName={season?.name ?? "리그"} />
+      <Nav
+        seasons={seasons.map((item) => ({ slug: item.slug }))}
+        selectedSeasonSlug={season?.slug ?? seasons[0]?.slug ?? "season-4"}
+      />
       <main className="mx-auto max-w-6xl px-4 py-8">
         <div className="mb-6">
           <h2 className="text-2xl font-bold">{title}</h2>

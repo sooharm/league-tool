@@ -1,3 +1,4 @@
+import { getSelectedSeason } from "@/lib/data";
 import {
   defaultSets,
   type MatchAdminInput,
@@ -17,8 +18,13 @@ const matchDetailInclude = {
 };
 
 export async function getActiveSeasonForMatchAdmin() {
-  return prisma.season.findFirst({
-    where: { isActive: true },
+  const season = await getSelectedSeason();
+  if (!season) {
+    return null;
+  }
+
+  return prisma.season.findUnique({
+    where: { id: season.id },
     include: {
       teams: {
         orderBy: { sortOrder: "asc" },

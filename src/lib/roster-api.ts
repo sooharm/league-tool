@@ -1,22 +1,10 @@
+import { getSelectedSeason } from "@/lib/data";
 import { parsePlayerInput, type PlayerInput } from "@/lib/roster";
 import { prisma } from "@/lib/prisma";
 import type { PlayerRole } from "@prisma/client";
 
 export async function getActiveSeasonRoster() {
-  const season = await prisma.season.findFirst({
-    where: { isActive: true },
-    include: {
-      teams: {
-        orderBy: { sortOrder: "asc" },
-        include: {
-          players: {
-            where: { isActive: true },
-            orderBy: [{ tier: "asc" }, { nickname: "asc" }],
-          },
-        },
-      },
-    },
-  });
+  const season = await getSelectedSeason();
 
   if (!season) return null;
 

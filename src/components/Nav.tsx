@@ -1,5 +1,7 @@
 import { DiscordAuthButton } from "@/components/DiscordAuthButton";
+import { SeasonSwitcher } from "@/components/SeasonSwitcher";
 import { auth } from "@/auth";
+import { SITE_TITLE } from "@/lib/season-selection";
 import Link from "next/link";
 
 const links = [
@@ -13,16 +15,28 @@ const links = [
   { href: "/rules", label: "규정집" },
 ];
 
-export async function Nav({ seasonName }: { seasonName: string }) {
+type SeasonOption = {
+  slug: string;
+};
+
+export async function Nav({
+  seasons,
+  selectedSeasonSlug,
+}: {
+  seasons: SeasonOption[];
+  selectedSeasonSlug: string;
+}) {
   const session = await auth();
 
   return (
     <header className="border-b border-[var(--card-border)] bg-[var(--card)]">
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-[var(--muted)]">스타리그 팀리그</p>
-            <h1 className="text-xl font-bold text-[var(--accent)]">{seasonName}</h1>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+              {SITE_TITLE}
+            </h1>
+            <SeasonSwitcher seasons={seasons} selectedSlug={selectedSeasonSlug} />
           </div>
           <DiscordAuthButton session={session} />
         </div>
