@@ -1,23 +1,19 @@
 import type { MatchWithResults, PlayerStanding } from "@/lib/standings";
 import type { Race } from "@prisma/client";
 
-export type MatchupRecord = {
-  wins: number;
-  losses: number;
-};
-
 export type PlayerDetailStanding = PlayerStanding & {
   upsets: number;
-  vsZerg: MatchupRecord;
-  vsProtoss: MatchupRecord;
-  vsTerran: MatchupRecord;
+};
+
+export type PlayerSetHistoryEntry = {
+  week: number;
+  round: number;
+  opponentNickname: string;
+  mapName: string | null;
+  outcome: "win" | "loss";
 };
 
 type PlayerSetOutcome = "W" | "L";
-
-function createMatchupRecord(): MatchupRecord {
-  return { wins: 0, losses: 0 };
-}
 
 function computeStreak(outcomes: PlayerSetOutcome[]): {
   streakType: "win" | "loss" | null;
@@ -48,17 +44,71 @@ function computeStreak(outcomes: PlayerSetOutcome[]): {
   };
 }
 
-function getOpponentRecord(
-  records: {
-    vsZerg: MatchupRecord;
-    vsProtoss: MatchupRecord;
-    vsTerran: MatchupRecord;
-  },
-  opponentRace: Race,
-) {
-  if (opponentRace === "Z") return records.vsZerg;
-  if (opponentRace === "P") return records.vsProtoss;
-  return records.vsTerran;
+type ChronologicalSetEvent = {
+  playedAt: Date;
+  week: number;
+  orderIndex: number;
+  matchId: string;
+};
+
+function sortChronologicalSetEvents<T extends ChronologicalSetEvent>(entries: T[]) {
+  return entries.sort((a, b) => {
+    const timeDiff = a.playedAt.getTime() - b.playedAt.getTime();
+    if (timeDiff !== 0) return timeDiff;
+    if (a.week !== b.week) return a.week - b.week;
+    if (a.matchId !== b.matchId) return a.matchId.localeCompare(b.matchId);
+    return a.orderIndex - b.orderIndex;
+  });
+}
+
+export function calculatePlayerSetHistory(
+  playerId: string,
+  players: { id: string; nickname: string }[],
+  matches: MatchWithResults[],
+): PlayerSetHistoryEntry[] {
+  const nicknames = new Map(players.map((player) => [player.id, player.nickname]));
+  const entries: (PlayerSetHistoryEntry & ChronologicalSetEvent)[] = [];
+
+  for (const match of matches) {
+    for (const set of match.sets) {
+      if (!set.result) continue;
+
+      const base = {
+        week: match.week,
+        round: match.round,
+        mapName: set.mapName,
+        playedAt: set.result.playedAt,
+        orderIndex: set.orderIndex,
+        matchId: match.id,
+      };
+
+      if (set.result.winnerPlayerId === playerId) {
+        entries.push({
+          ...base,
+          opponentNickname: nicknames.get(set.result.loserPlayerId) ?? "알 수 없음",
+          outcome: "win",
+        });
+      }
+
+      if (set.result.loserPlayerId === playerId) {
+        entries.push({
+          ...base,
+          opponentNickname: nicknames.get(set.result.winnerPlayerId) ?? "알 수 없음",
+          outcome: "loss",
+        });
+      }
+    }
+  }
+
+  return sortChronologicalSetEvents(entries).map(
+    ({ playedAt: _playedAt, orderIndex: _orderIndex, matchId: _matchId, ...entry }) => entry,
+  );
+}
+
+export function formatPlayerSetHistoryLine(entry: PlayerSetHistoryEntry) {
+  const mapLabel = entry.mapName ? `(${entry.mapName})` : "";
+  const resultLabel = entry.outcome === "win" ? "승리" : "패배";
+  return `${entry.week}/${entry.round} vs ${entry.opponentNickname} ${mapLabel} ${resultLabel}`.trim();
 }
 
 export function calculatePlayerDetailStandings(
@@ -84,13 +134,9 @@ export function calculatePlayerDetailStandings(
       wins: number;
       losses: number;
       upsets: number;
-      vsZerg: MatchupRecord;
-      vsProtoss: MatchupRecord;
-      vsTerran: MatchupRecord;
     }
   >();
   const outcomes = new Map<string, PlayerSetOutcome[]>();
-  const playerRaces = new Map<string, Race>();
 
   for (const player of players) {
     stats.set(player.id, {
@@ -104,12 +150,8 @@ export function calculatePlayerDetailStandings(
       wins: 0,
       losses: 0,
       upsets: 0,
-      vsZerg: createMatchupRecord(),
-      vsProtoss: createMatchupRecord(),
-      vsTerran: createMatchupRecord(),
     });
     outcomes.set(player.id, []);
-    playerRaces.set(player.id, player.race);
   }
 
   const events: {
@@ -150,19 +192,11 @@ export function calculatePlayerDetailStandings(
     }
   }
 
-  events.sort((a, b) => {
-    const timeDiff = a.playedAt.getTime() - b.playedAt.getTime();
-    if (timeDiff !== 0) return timeDiff;
-    if (a.week !== b.week) return a.week - b.week;
-    if (a.matchId !== b.matchId) return a.matchId.localeCompare(b.matchId);
-    return a.orderIndex - b.orderIndex;
-  });
+  sortChronologicalSetEvents(events);
 
   for (const event of events) {
     const winner = stats.get(event.winnerPlayerId);
     const loser = stats.get(event.loserPlayerId);
-    const loserRace = playerRaces.get(event.loserPlayerId);
-    const winnerRace = playerRaces.get(event.winnerPlayerId);
 
     if (winner) {
       winner.wins += 1;
@@ -174,14 +208,6 @@ export function calculatePlayerDetailStandings(
 
     outcomes.get(event.winnerPlayerId)?.push("W");
     outcomes.get(event.loserPlayerId)?.push("L");
-
-    if (winner && loserRace) {
-      getOpponentRecord(winner, loserRace).wins += 1;
-    }
-
-    if (loser && winnerRace) {
-      getOpponentRecord(loser, winnerRace).losses += 1;
-    }
   }
 
   return Array.from(stats.values())
@@ -205,10 +231,6 @@ export function calculatePlayerDetailStandings(
       if (b.winRate !== a.winRate) return b.winRate - a.winRate;
       return a.nickname.localeCompare(b.nickname, "ko");
     });
-}
-
-export function formatMatchupRecord(record: MatchupRecord) {
-  return `${record.wins}승 ${record.losses}패`;
 }
 
 export function formatWinLossRecord(wins: number, losses: number) {

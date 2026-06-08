@@ -1,20 +1,14 @@
 "use client";
 
 import {
-  formatMatchupRecord,
+  formatPlayerSetHistoryLine,
   formatWinLossUpsetRecord,
   type PlayerDetailStanding,
+  type PlayerSetHistoryEntry,
 } from "@/lib/player-stats";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
-type SortKey =
-  | "nickname"
-  | "vsZerg"
-  | "vsProtoss"
-  | "vsTerran"
-  | "games"
-  | "wins"
-  | "winRate";
+type SortKey = "nickname" | "games" | "wins" | "winRate";
 
 type SortDir = "asc" | "desc";
 
@@ -26,28 +20,10 @@ const RACE_LABELS: Record<string, string> = {
   Z: "저그",
 };
 
-function matchupWinRate(record: { wins: number; losses: number }) {
-  const total = record.wins + record.losses;
-  if (total === 0) return 0;
-  return record.wins / total;
-}
-
 function compareRows(a: PlayerDetailStanding, b: PlayerDetailStanding, key: SortKey) {
   switch (key) {
     case "nickname":
       return a.nickname.localeCompare(b.nickname, "ko");
-    case "vsZerg":
-      return matchupWinRate(a.vsZerg) - matchupWinRate(b.vsZerg) || a.vsZerg.wins - b.vsZerg.wins;
-    case "vsProtoss":
-      return (
-        matchupWinRate(a.vsProtoss) - matchupWinRate(b.vsProtoss) ||
-        a.vsProtoss.wins - b.vsProtoss.wins
-      );
-    case "vsTerran":
-      return (
-        matchupWinRate(a.vsTerran) - matchupWinRate(b.vsTerran) ||
-        a.vsTerran.wins - b.vsTerran.wins
-      );
     case "games":
       return a.games - b.games;
     case "wins":
@@ -80,6 +56,10 @@ export function PlayerStandingsTable({
   const [raceFilter, setRaceFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("wins");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [historyCache, setHistoryCache] = useState<Record<string, PlayerSetHistoryEntry[]>>({});
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const teams = useMemo(() => {
     const map = new Map<string, { name: string; color: string }>();
@@ -115,6 +95,8 @@ export function PlayerStandingsTable({
       });
   }, [rows, search, teamFilter, raceFilter, minGamesValue, sortKey, sortDir]);
 
+  const columnCount = 5;
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -133,6 +115,40 @@ export function PlayerStandingsTable({
     setRaceFilter((prev) => (prev === race ? null : race));
   }
 
+  async function togglePlayerHistory(playerId: string) {
+    if (expandedPlayerId === playerId) {
+      setExpandedPlayerId(null);
+      setHistoryError(null);
+      return;
+    }
+
+    setExpandedPlayerId(playerId);
+    setHistoryError(null);
+
+    if (historyCache[playerId]) {
+      return;
+    }
+
+    setHistoryLoadingId(playerId);
+
+    try {
+      const response = await fetch(`/api/players/${playerId}/history`);
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error ?? "경기 목록을 불러오지 못했습니다.");
+      }
+
+      setHistoryCache((prev) => ({
+        ...prev,
+        [playerId]: json.history as PlayerSetHistoryEntry[],
+      }));
+    } catch (error) {
+      setHistoryError(error instanceof Error ? error.message : "경기 목록을 불러오지 못했습니다.");
+    } finally {
+      setHistoryLoadingId(null);
+    }
+  }
+
   if (rows.length === 0) {
     return (
       <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-8 text-center text-[var(--muted)]">
@@ -142,9 +158,6 @@ export function PlayerStandingsTable({
   }
 
   const columns: { key: SortKey; header: string; className?: string }[] = [
-    { key: "vsZerg", header: "저그전", className: "min-w-[4.5rem]" },
-    { key: "vsProtoss", header: "프로토스전", className: "min-w-[5.5rem]" },
-    { key: "vsTerran", header: "테란전", className: "min-w-[4.5rem]" },
     { key: "games", header: "총경기수", className: "min-w-[5rem]" },
     { key: "wins", header: "총전적 (업셋횟수)", className: "min-w-[6.5rem]" },
     { key: "winRate", header: "승률", className: "min-w-[4rem]" },
@@ -155,9 +168,10 @@ export function PlayerStandingsTable({
       <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-sm text-[var(--muted)]">
           <p>
-            세트 결과 기준 개인 전적 · 종족 상대 전적 · 업셋은 자기보다 상위 티어(숫자가 작은
-            티어) 상대에게 이긴 횟수
+            세트 결과 기준 개인 전적 · 선수 이름을 클릭하면 총전적에 포함된 경기 목록이 시간순으로
+            표시됩니다.
           </p>
+          <p>업셋은 자기보다 상위 티어(숫자가 작은 티어) 상대에게 이긴 횟수입니다.</p>
           {Number.isFinite(minGamesValue) && minGamesValue > 0 ? (
             <p className="text-[var(--foreground)]">
               대상: 총 전적 {minGamesValue}전 이상
@@ -244,7 +258,7 @@ export function PlayerStandingsTable({
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead>
             <tr className="border-b border-[var(--card-border)] bg-black/20 text-left text-[var(--muted)]">
               <th className="w-14 whitespace-nowrap px-4 py-3 font-medium">순위</th>
@@ -279,61 +293,91 @@ export function PlayerStandingsTable({
             {filteredRows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + 2}
+                  colSpan={columnCount}
                   className="px-4 py-8 text-center text-[var(--muted)]"
                 >
                   검색·필터 조건에 해당하는 선수가 없습니다.
                 </td>
               </tr>
             ) : (
-              filteredRows.map((row, index) => (
-                <tr
-                  key={row.playerId}
-                  className="border-b border-[var(--card-border)]/60 last:border-b-0 hover:bg-white/5"
-                >
-                  <td className="px-4 py-3 text-center text-[var(--muted)]">{index + 1}</td>
-                  <td className="px-4 py-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{row.nickname}</span>
-                        <span className="text-xs text-[var(--muted)]">
-                          {RACE_LABELS[row.race] ?? row.race}
+              filteredRows.map((row, index) => {
+                const isExpanded = expandedPlayerId === row.playerId;
+                const history = historyCache[row.playerId];
+                const isLoadingHistory = historyLoadingId === row.playerId;
+
+                return (
+                  <Fragment key={row.playerId}>
+                    <tr className="border-b border-[var(--card-border)]/60 hover:bg-white/5">
+                      <td className="px-4 py-3 text-center text-[var(--muted)]">{index + 1}</td>
+                      <td className="px-4 py-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void togglePlayerHistory(row.playerId)}
+                              className={`font-medium transition hover:text-[var(--accent)] ${
+                                isExpanded ? "text-[var(--accent)]" : ""
+                              }`}
+                            >
+                              {row.nickname}
+                            </button>
+                            <span className="text-xs text-[var(--muted)]">
+                              {RACE_LABELS[row.race] ?? row.race}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => toggleTeamFilter(row.teamId)}
+                            className="mt-0.5 text-xs transition hover:underline"
+                            style={{ color: row.teamColor }}
+                          >
+                            {row.teamName}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center">{row.games}</td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center">
+                        {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-center">
+                        <span
+                          className={
+                            row.winRate >= 50 ? "font-semibold text-[var(--accent)]" : "text-sky-300"
+                          }
+                        >
+                          {row.winRate.toFixed(1)}%
                         </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => toggleTeamFilter(row.teamId)}
-                        className="mt-0.5 text-xs transition hover:underline"
-                        style={{ color: row.teamColor }}
-                      >
-                        {row.teamName}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
-                    {formatMatchupRecord(row.vsZerg)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
-                    {formatMatchupRecord(row.vsProtoss)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
-                    {formatMatchupRecord(row.vsTerran)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">{row.games}</td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
-                    {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-center">
-                    <span
-                      className={
-                        row.winRate >= 50 ? "font-semibold text-[var(--accent)]" : "text-sky-300"
-                      }
-                    >
-                      {row.winRate.toFixed(1)}%
-                    </span>
-                  </td>
-                </tr>
-              ))
+                      </td>
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="border-b border-[var(--card-border)]/60 bg-black/15">
+                        <td colSpan={columnCount} className="px-4 py-4">
+                          {isLoadingHistory ? (
+                            <p className="text-sm text-[var(--muted)]">경기 목록 불러오는 중...</p>
+                          ) : historyError && !history ? (
+                            <p className="text-sm text-red-400">{historyError}</p>
+                          ) : history && history.length > 0 ? (
+                            <ul className="space-y-1 font-mono text-sm">
+                              {history.map((entry, entryIndex) => (
+                                <li
+                                  key={`${row.playerId}-${entryIndex}`}
+                                  className={
+                                    entry.outcome === "win" ? "text-emerald-300" : "text-red-300"
+                                  }
+                                >
+                                  {formatPlayerSetHistoryLine(entry)}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-[var(--muted)]">기록된 경기가 없습니다.</p>
+                          )}
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

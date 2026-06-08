@@ -9,7 +9,7 @@ export default async function PlayersPage() {
   return (
     <PageShell
       title="개인 순위"
-      description="종족 상대 전적, 총경기수, 총전적, 승률을 검색·필터와 함께 확인합니다."
+      description="총경기수, 총전적, 승률을 확인하고 선수별 경기 기록을 조회합니다."
     >
       <PlayerStandingsTable rows={standings} />
     </PageShell>
