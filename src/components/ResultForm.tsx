@@ -104,6 +104,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [addingSet, setAddingSet] = useState(false);
+  const [removingSetId, setRemovingSetId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
@@ -316,6 +317,37 @@ export function ResultForm({ matchId }: { matchId: string }) {
     }
   }
 
+  async function handleRemoveAceSet(setId: string) {
+    if (!window.confirm("에이스결정전을 삭제할까요?")) {
+      return;
+    }
+
+    setRemovingSetId(setId);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/results/${matchId}/sets`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ setId }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error ?? "세트 삭제에 실패했습니다.");
+      }
+
+      const resultData = json as ResultsResponse;
+      setData(resultData);
+      setSelections(initSelections(resultData.match.sets));
+      setMessage("에이스결정전 세트가 삭제되었습니다.");
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "세트 삭제에 실패했습니다.");
+    } finally {
+      setRemovingSetId(null);
+    }
+  }
+
   if (loading && !data) {
     return <p className="text-[var(--muted)]">경기 정보를 불러오는 중...</p>;
   }
@@ -427,12 +459,24 @@ export function ResultForm({ matchId }: { matchId: string }) {
                   className="border-b border-[var(--card-border)]/60 last:border-b-0"
                 >
                   <td className="px-4 py-3">
-                    <span className="font-medium text-[var(--foreground)]">
-                      {getTierBracketLabel(set.tierBracket)}
-                    </span>
-                    {set.hasResult ? (
-                      <span className="ml-2 text-xs text-[var(--accent)]">저장됨</span>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium text-[var(--foreground)]">
+                        {getTierBracketLabel(set.tierBracket)}
+                      </span>
+                      {set.hasResult ? (
+                        <span className="text-xs text-[var(--accent)]">저장됨</span>
+                      ) : null}
+                      {canEdit && set.tierBracket === "ACE" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAceSet(set.id)}
+                          disabled={saving || addingSet || removingSetId === set.id}
+                          className="text-xs text-red-400 transition hover:text-red-300 disabled:opacity-50"
+                        >
+                          {removingSetId === set.id ? "삭제 중..." : "삭제"}
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <MapSelect
@@ -524,7 +568,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
         <button
           type="button"
           onClick={handleSave}
-          disabled={!canEdit || saving || addingSet}
+          disabled={!canEdit || saving || addingSet || !!removingSetId}
           className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-black transition hover:opacity-90 disabled:opacity-50"
         >
           결과 저장
@@ -533,7 +577,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
           <button
             type="button"
             onClick={handleAddAceSet}
-            disabled={!canEdit || saving || addingSet}
+            disabled={!canEdit || saving || addingSet || !!removingSetId}
             className="rounded-lg border border-[var(--accent)] px-4 py-2 text-sm text-[var(--accent)] transition hover:bg-[var(--accent)]/10 disabled:opacity-50"
           >
             {addingSet ? "추가 중..." : "+ 에이스결정전 세트 추가"}
@@ -545,7 +589,9 @@ export function ResultForm({ matchId }: { matchId: string }) {
       <p className="text-xs text-[var(--muted)]">
         선수 선택란에서 기권을 고르면 상대팀 승리로 처리됩니다. 기권 세트는 6인 엔트리 가산점에
         포함되지 않습니다.
-        {!hasAceSet ? " 3:3 동점일 때 에이스결정전 세트를 추가할 수 있습니다." : ""}
+        {!hasAceSet
+          ? " 3:3 동점일 때 에이스결정전 세트를 추가할 수 있습니다."
+          : " 에이스결정전은 세트명 옆 삭제 버튼으로 제거할 수 있습니다."}
       </p>
 
       {message ? <p className="text-sm text-[var(--accent)]">{message}</p> : null}

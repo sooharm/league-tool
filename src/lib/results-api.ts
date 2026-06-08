@@ -309,3 +309,42 @@ export async function addMatchSet(matchId: string, tierBracket: TierBracket = "A
 
   return buildResultsResponse(refreshed);
 }
+
+export async function removeAceSet(matchId: string, setId: string) {
+  const match = await loadMatchForResults(matchId);
+  if (!match) {
+    throw new Error("MATCH_NOT_FOUND");
+  }
+
+  const set = match.sets.find((item) => item.id === setId);
+  if (!set) {
+    throw new Error("SET_NOT_FOUND");
+  }
+  if (set.tierBracket !== "ACE") {
+    throw new Error("NOT_ACE_SET");
+  }
+
+  await prisma.set.delete({ where: { id: setId } });
+
+  const refreshed = await loadMatchForResults(matchId);
+  if (!refreshed) {
+    throw new Error("MATCH_NOT_FOUND");
+  }
+
+  const savedCount = refreshed.sets.filter((item) => item.result).length;
+  const status = resolveMatchStatusAfterSave(refreshed.sets.length, savedCount);
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: { status },
+  });
+
+  await syncMatchSixManFromResults(matchId);
+
+  const synced = await loadMatchForResults(matchId);
+  if (!synced) {
+    throw new Error("MATCH_NOT_FOUND");
+  }
+
+  return buildResultsResponse(synced);
+}
