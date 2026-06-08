@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  comparePlayerDetailStandings,
   formatPlayerSetHistoryLine,
   formatWinLossUpsetRecord,
   type PlayerDetailStanding,
@@ -27,7 +28,7 @@ function compareRows(a: PlayerDetailStanding, b: PlayerDetailStanding, key: Sort
     case "games":
       return a.games - b.games;
     case "wins":
-      return a.wins - b.wins || a.losses - b.losses;
+      return -comparePlayerDetailStandings(a, b);
     case "winRate":
       return a.winRate - b.winRate;
     default:
@@ -51,7 +52,6 @@ export function PlayerStandingsTable({
   emptyMessage?: string;
 }) {
   const [search, setSearch] = useState("");
-  const [minGames, setMinGames] = useState("");
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [raceFilter, setRaceFilter] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("wins");
@@ -71,8 +71,6 @@ export function PlayerStandingsTable({
       .sort((a, b) => a.name.localeCompare(b.name, "ko"));
   }, [rows]);
 
-  const minGamesValue = minGames.trim() === "" ? 0 : Number.parseInt(minGames, 10);
-
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
@@ -86,14 +84,11 @@ export function PlayerStandingsTable({
       })
       .filter((row) => (teamFilter ? row.teamId === teamFilter : true))
       .filter((row) => (raceFilter ? row.race === raceFilter : true))
-      .filter((row) =>
-        Number.isFinite(minGamesValue) && minGamesValue > 0 ? row.games >= minGamesValue : true,
-      )
       .sort((a, b) => {
         const result = compareRows(a, b, sortKey);
         return sortDir === "asc" ? result : -result;
       });
-  }, [rows, search, teamFilter, raceFilter, minGamesValue, sortKey, sortDir]);
+  }, [rows, search, teamFilter, raceFilter, sortKey, sortDir]);
 
   const columnCount = 5;
 
@@ -167,16 +162,8 @@ export function PlayerStandingsTable({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-sm text-[var(--muted)]">
-          <p>
-            세트 결과 기준 개인 전적 · 선수 이름을 클릭하면 총전적에 포함된 경기 목록이 시간순으로
-            표시됩니다.
-          </p>
+          <p>선수 탭을 클릭하면 경기목록이 표시됩니다.</p>
           <p>업셋은 자기보다 상위 티어(숫자가 작은 티어) 상대에게 이긴 횟수입니다.</p>
-          {Number.isFinite(minGamesValue) && minGamesValue > 0 ? (
-            <p className="text-[var(--foreground)]">
-              대상: 총 전적 {minGamesValue}전 이상
-            </p>
-          ) : null}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -186,14 +173,6 @@ export function PlayerStandingsTable({
             onChange={(event) => setSearch(event.target.value)}
             placeholder="선수·팀 검색"
             className="w-40 rounded-lg border border-[var(--card-border)] bg-black/20 px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
-          />
-          <input
-            type="number"
-            min={0}
-            value={minGames}
-            onChange={(event) => setMinGames(event.target.value)}
-            placeholder="최소 경기수"
-            className="w-28 rounded-lg border border-[var(--card-border)] bg-black/20 px-3 py-2 text-sm outline-none transition focus:border-[var(--accent)]"
           />
         </div>
       </div>
@@ -307,27 +286,41 @@ export function PlayerStandingsTable({
 
                 return (
                   <Fragment key={row.playerId}>
-                    <tr className="border-b border-[var(--card-border)]/60 hover:bg-white/5">
+                    <tr
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void togglePlayerHistory(row.playerId)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          void togglePlayerHistory(row.playerId);
+                        }
+                      }}
+                      className={`cursor-pointer border-b border-[var(--card-border)]/60 transition hover:bg-white/5 ${
+                        isExpanded ? "bg-white/5" : ""
+                      }`}
+                    >
                       <td className="px-4 py-3 text-center text-[var(--muted)]">{index + 1}</td>
                       <td className="px-4 py-3">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void togglePlayerHistory(row.playerId)}
-                              className={`font-medium transition hover:text-[var(--accent)] ${
-                                isExpanded ? "text-[var(--accent)]" : ""
+                            <span
+                              className={`font-medium ${
+                                isExpanded ? "text-[var(--accent)]" : "text-[var(--foreground)]"
                               }`}
                             >
                               {row.nickname}
-                            </button>
+                            </span>
                             <span className="text-xs text-[var(--muted)]">
                               {RACE_LABELS[row.race] ?? row.race}
                             </span>
                           </div>
                           <button
                             type="button"
-                            onClick={() => toggleTeamFilter(row.teamId)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleTeamFilter(row.teamId);
+                            }}
                             className="mt-0.5 text-xs transition hover:underline"
                             style={{ color: row.teamColor }}
                           >
@@ -384,8 +377,8 @@ export function PlayerStandingsTable({
       </div>
 
       <p className="text-xs text-[var(--muted)]">
-        선수·팀명 검색, 최소 경기수, 소속팀·종족 필터를 사용할 수 있습니다. 열 제목을 클릭하면
-        정렬됩니다. 기본 정렬은 승수 내림차순입니다.
+        선수·팀명 검색, 소속팀·종족 필터를 사용할 수 있습니다. 열 제목을 클릭하면 정렬됩니다.
+        기본 정렬은 승수 내림차순입니다.
       </p>
     </div>
   );

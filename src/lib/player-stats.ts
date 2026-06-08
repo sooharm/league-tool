@@ -224,13 +224,17 @@ export function calculatePlayerDetailStandings(
         streakLabel: streak.streakLabel,
       };
     })
-    .filter((player) => player.games > 0)
-    .sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      if (a.losses !== b.losses) return a.losses - b.losses;
-      if (b.winRate !== a.winRate) return b.winRate - a.winRate;
-      return a.nickname.localeCompare(b.nickname, "ko");
-    });
+    .sort(comparePlayerDetailStandings);
+}
+
+/** 승수 내림차순. 동승 시 0승0패는 0승1패·0승2패보다 아래, 그 외는 패수 적은 순. */
+export function comparePlayerDetailStandings(a: PlayerDetailStanding, b: PlayerDetailStanding) {
+  if (b.wins !== a.wins) return b.wins - a.wins;
+  if (a.games === 0 && b.games > 0) return 1;
+  if (b.games === 0 && a.games > 0) return -1;
+  if (a.losses !== b.losses) return a.losses - b.losses;
+  if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+  return a.nickname.localeCompare(b.nickname, "ko");
 }
 
 export function formatWinLossRecord(wins: number, losses: number) {
