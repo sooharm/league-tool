@@ -1,3 +1,4 @@
+import { formatMatchDate } from "@/lib/match-display";
 import type { MatchWithResults, PlayerStanding } from "@/lib/standings";
 import type { Race } from "@prisma/client";
 
@@ -6,8 +7,7 @@ export type PlayerDetailStanding = PlayerStanding & {
 };
 
 export type PlayerSetHistoryEntry = {
-  week: number;
-  round: number;
+  matchDate: string | null;
   opponentNickname: string;
   mapName: string | null;
   outcome: "win" | "loss";
@@ -74,10 +74,10 @@ export function calculatePlayerSetHistory(
       if (!set.result) continue;
 
       const base = {
-        week: match.week,
-        round: match.round,
+        matchDate: (match.scheduledAt ?? set.result.playedAt).toISOString(),
         mapName: set.mapName,
         playedAt: set.result.playedAt,
+        week: match.week,
         orderIndex: set.orderIndex,
         matchId: match.id,
       };
@@ -101,14 +101,16 @@ export function calculatePlayerSetHistory(
   }
 
   return sortChronologicalSetEvents(entries).map(
-    ({ playedAt: _playedAt, orderIndex: _orderIndex, matchId: _matchId, ...entry }) => entry,
+    ({ playedAt: _playedAt, week: _week, orderIndex: _orderIndex, matchId: _matchId, ...entry }) =>
+      entry,
   );
 }
 
 export function formatPlayerSetHistoryLine(entry: PlayerSetHistoryEntry) {
   const mapLabel = entry.mapName ? `(${entry.mapName})` : "";
   const resultLabel = entry.outcome === "win" ? "승리" : "패배";
-  return `${entry.week}/${entry.round} vs ${entry.opponentNickname} ${mapLabel} ${resultLabel}`.trim();
+  const dateLabel = formatMatchDate(entry.matchDate ? new Date(entry.matchDate) : null);
+  return `${dateLabel} vs ${entry.opponentNickname} ${mapLabel} ${resultLabel}`.trim();
 }
 
 export function calculatePlayerDetailStandings(
