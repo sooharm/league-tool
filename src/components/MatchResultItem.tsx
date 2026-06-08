@@ -14,6 +14,41 @@ import type { MatchWithResults } from "@/lib/standings";
 import Link from "next/link";
 import { useState } from "react";
 
+function getSetResultSides(
+  result: NonNullable<CompletedMatch["sets"][number]["result"]>,
+  match: CompletedMatch,
+) {
+  const homeWon = result.winnerTeamId === match.homeTeamId;
+
+  if (result.isForfeit) {
+    return {
+      home: {
+        nickname: homeWon ? result.winnerPlayer.nickname : "기권",
+        label: homeWon ? "기권승" : "기권",
+        color: match.homeTeam.color,
+      },
+      away: {
+        nickname: homeWon ? "기권" : result.winnerPlayer.nickname,
+        label: homeWon ? "기권" : "기권승",
+        color: match.awayTeam.color,
+      },
+    };
+  }
+
+  return {
+    home: {
+      nickname: homeWon ? result.winnerPlayer.nickname : result.loserPlayer!.nickname,
+      label: homeWon ? "W" : "L",
+      color: match.homeTeam.color,
+    },
+    away: {
+      nickname: homeWon ? result.loserPlayer!.nickname : result.winnerPlayer.nickname,
+      label: homeWon ? "L" : "W",
+      color: match.awayTeam.color,
+    },
+  };
+}
+
 function statusBadgeClass(status: ResultInputStatus) {
   if (status === "complete") {
     return "border-emerald-500/40 bg-emerald-500/10 text-emerald-300";
@@ -116,33 +151,21 @@ export function MatchResultItem({
                     {set.result ? (
                       <>
                         {" · "}
-                        <span
-                          style={{
-                            color:
-                              set.result.winnerTeamId === match.homeTeamId
-                                ? match.homeTeam.color
-                                : match.awayTeam.color,
-                          }}
-                        >
-                          {set.result.winnerPlayer.nickname}
-                        </span>{" "}
-                        {set.result.isForfeit ? "기권승" : "W"}{" "}
-                        {set.result.isForfeit ? null : (
-                          <>
-                            vs{" "}
-                            <span
-                              style={{
-                                color:
-                                  set.result.loserTeamId === match.homeTeamId
-                                    ? match.homeTeam.color
-                                    : match.awayTeam.color,
-                              }}
-                            >
-                              {set.result.loserPlayer?.nickname}
-                            </span>{" "}
-                            L
-                          </>
-                        )}
+                        {(() => {
+                          const sides = getSetResultSides(set.result, match);
+                          return (
+                            <>
+                              <span style={{ color: sides.home.color }}>
+                                {sides.home.nickname}
+                              </span>{" "}
+                              {sides.home.label} vs{" "}
+                              <span style={{ color: sides.away.color }}>
+                                {sides.away.nickname}
+                              </span>{" "}
+                              {sides.away.label}
+                            </>
+                          );
+                        })()}
                       </>
                     ) : null}
                   </li>
