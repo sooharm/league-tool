@@ -4,7 +4,6 @@ import { FORM_SELECT_CLASS } from "@/lib/form-styles";
 import { actingRoleLabel } from "@/lib/entry";
 import type { PlayerRole } from "@prisma/client";
 import { getTierBracketLabel } from "@/lib/standings";
-import { filterPlayersByTierBracket } from "@/lib/tier-brackets";
 import type { Race } from "@prisma/client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -110,33 +109,6 @@ function mapToSlots(map: Record<string, string>) {
     .map(([setId, playerId]) => ({ setId, playerId }));
 }
 
-function sanitizeTeamSelections(
-  sets: SetInfo[],
-  selections: Record<string, string>,
-  players: PlayerOption[],
-) {
-  const sanitized: Record<string, string> = {};
-
-  for (const set of sets) {
-    const playerId = selections[set.id];
-    if (!playerId) continue;
-
-    const eligible = filterPlayersByTierBracket(players, set.tierBracket);
-    if (eligible.some((player) => player.id === playerId)) {
-      sanitized[set.id] = playerId;
-    }
-  }
-
-  return sanitized;
-}
-
-function buildTeamSelections(
-  sets: SetInfo[],
-  slots: SlotInfo[] | null,
-  players: PlayerOption[],
-) {
-  return sanitizeTeamSelections(sets, slotsToMap(slots), players);
-}
 
 type MeResponse = {
   loggedIn: boolean;
@@ -169,20 +141,8 @@ export function EntryForm({ matchId }: { matchId: string }) {
 
       const entryData = json as EntryResponse;
       setData(entryData);
-      setHomeSelections(
-        buildTeamSelections(
-          entryData.match.sets,
-          entryData.slots.home,
-          entryData.match.homeTeam.players,
-        ),
-      );
-      setAwaySelections(
-        buildTeamSelections(
-          entryData.match.sets,
-          entryData.slots.away,
-          entryData.match.awayTeam.players,
-        ),
-      );
+      setHomeSelections(slotsToMap(entryData.slots.home));
+      setAwaySelections(slotsToMap(entryData.slots.away));
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : "오류가 발생했습니다.");
     } finally {
@@ -277,20 +237,8 @@ export function EntryForm({ matchId }: { matchId: string }) {
 
   function applyEntryResponse(entryData: EntryResponse) {
     setData(entryData);
-    setHomeSelections(
-      buildTeamSelections(
-        entryData.match.sets,
-        entryData.slots.home,
-        entryData.match.homeTeam.players,
-      ),
-    );
-    setAwaySelections(
-      buildTeamSelections(
-        entryData.match.sets,
-        entryData.slots.away,
-        entryData.match.awayTeam.players,
-      ),
-    );
+    setHomeSelections(slotsToMap(entryData.slots.home));
+    setAwaySelections(slotsToMap(entryData.slots.away));
   }
 
   async function handleSave() {
@@ -415,7 +363,6 @@ export function EntryForm({ matchId }: { matchId: string }) {
     slotList: SlotInfo[] | null,
   ) {
     const setId = set.id;
-    const eligiblePlayers = filterPlayersByTierBracket(team.players, set.tierBracket);
     if (hidden) {
       return (
         <span className="text-sm text-[var(--muted)]">
@@ -434,7 +381,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
           className={`w-full ${FORM_SELECT_CLASS}`}
         >
           <option value="">선수 선택</option>
-          {eligiblePlayers.map((player) => (
+          {(team.players ?? []).map((player) => (
             <option key={player.id} value={player.id}>
               {playerLabel(player)}
             </option>
@@ -445,9 +392,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
 
     const slot = slotList?.find((item) => item.setId === setId);
     const selectedPlayer =
-      slot?.player ??
-      eligiblePlayers.find((player) => player.id === selections[setId]) ??
-      team.players.find((player) => player.id === selections[setId]);
+      slot?.player ?? team.players.find((player) => player.id === selections[setId]);
 
     return (
       <span className="text-sm">

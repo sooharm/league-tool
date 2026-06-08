@@ -34,38 +34,3 @@ export function buildStandardSets() {
     mapName: null as string | null,
   }));
 }
-
-export function getEligibleTiersForBracket(bracket: string): number[] | null {
-  switch (bracket) {
-    case "TIER_1_2":
-      return [1, 2];
-    case "TIER_2_3":
-      return [2, 3];
-    case "TIER_3_4":
-      return [3, 4];
-    case "TIER_4_5":
-      return [4, 5];
-    case "TIER_2":
-      return [2];
-    case "TIER_3":
-      return [3];
-    case "TIER_4":
-      return [4];
-    case "ACE":
-      return null;
-    default:
-      return null;
-  }
-}
-
-export function filterPlayersByTierBracket<T extends { tier: number }>(
-  players: T[],
-  bracket: string,
-): T[] {
-  const tiers = getEligibleTiersForBracket(bracket);
-  if (!tiers) {
-    return players;
-  }
-
-  return players.filter((player) => tiers.includes(player.tier));
-}
