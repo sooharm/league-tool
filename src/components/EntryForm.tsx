@@ -127,6 +127,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [adminResetTeamId, setAdminResetTeamId] = useState<string | null>(null);
 
   const fetchEntry = useCallback(async () => {
     setLoading(true);
@@ -192,6 +193,41 @@ export function EntryForm({ matchId }: { matchId: string }) {
     if (data.permissions.canEditAway) return data.match.awayTeam.id;
     return null;
   }, [data, adminEditingBoth]);
+
+  const resetTarget = useMemo(() => {
+    if (!data) return null;
+
+    if (editingTeamId) {
+      const team =
+        editingTeamId === data.match.homeTeam.id
+          ? data.match.homeTeam
+          : data.match.awayTeam;
+      const canReset =
+        editingTeamId === data.match.homeTeam.id
+          ? data.permissions.canResetHome
+          : data.permissions.canResetAway;
+      return canReset ? team : null;
+    }
+
+    if (adminEditingBoth) {
+      const teamId = adminResetTeamId ?? data.match.homeTeam.id;
+      if (teamId === data.match.homeTeam.id && data.permissions.canResetHome) {
+        return data.match.homeTeam;
+      }
+      if (teamId === data.match.awayTeam.id && data.permissions.canResetAway) {
+        return data.match.awayTeam;
+      }
+      if (data.permissions.canResetHome) return data.match.homeTeam;
+      if (data.permissions.canResetAway) return data.match.awayTeam;
+    }
+
+    return null;
+  }, [data, editingTeamId, adminEditingBoth, adminResetTeamId]);
+
+  useEffect(() => {
+    if (!data?.permissions.isAdmin) return;
+    setAdminResetTeamId((current) => current ?? data.match.homeTeam.id);
+  }, [data?.match.homeTeam.id, data?.permissions.isAdmin]);
 
   async function persistTeamSlots(
     teamId: string,
@@ -279,14 +315,25 @@ export function EntryForm({ matchId }: { matchId: string }) {
     applyEntryResponse(json as EntryResponse);
   }
 
-  async function handleReset(teamId: string, teamName: string) {
+  async function handleResetClick() {
+    if (!data || !resetTarget) return;
+
+    const { id: teamId, name: teamName } = resetTarget;
+
     if (
       !confirm(
-        `${teamName} 엔트리를 초기화할까요?\n작성한 선수 지정과 확정 상태가 모두 사라집니다.`,
+        adminEditingBoth
+          ? `${teamName} 엔트리를 초기화할까요?\n작성한 선수 지정과 확정 상태가 모두 사라집니다.`
+          : "엔트리를 초기화할까요?\n작성한 선수 지정과 확정 상태가 모두 사라집니다.",
       )
     ) {
       return;
     }
+
+    await handleReset(teamId, teamName);
+  }
+
+  async function handleReset(teamId: string, teamName: string) {
 
     setSaving(true);
     setMessage(null);
@@ -416,6 +463,125 @@ export function EntryForm({ matchId }: { matchId: string }) {
   const { entry, match, slots, permissions } = data;
   const published = entry.status === "published";
 
+  if (published) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/entry"
+          className="inline-block text-sm text-[var(--accent)] hover:underline"
+        >
+          ← 엔트리 목록
+        </Link>
+
+        <article className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4">
+          <h3 className="text-lg font-bold">
+            <span style={{ color: match.homeTeam.color }}>{match.homeTeam.name}</span>
+            {" vs "}
+            <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
+          </h3>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
+          </p>
+          {entry.publishedAt ? (
+            <p className="mt-2 text-sm text-emerald-300">
+              {formatDateTime(entry.publishedAt)} 공개
+            </p>
+          ) : null}
+        </article>
+
+        <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <p className="text-sm text-emerald-300">
+            공개된 엔트리입니다. 경기 중 선수 교체는 경기결과 입력에서 처리합니다.
+          </p>
+        </section>
+
+        <div className="flex flex-wrap gap-4 text-sm">
+          <div>
+            <span style={{ color: match.homeTeam.color }}>{match.homeTeam.name}</span>
+            {entry.homeConfirmedAt ? (
+              <span className="ml-2 text-[var(--accent)]">
+                ✓ 확정됨 ({formatDateTime(entry.homeConfirmedAt)}
+                {entry.homeConfirmedBy ? ` · ${entry.homeConfirmedBy}` : ""})
+              </span>
+            ) : (
+              <span className="ml-2 text-[var(--muted)]">미확정</span>
+            )}
+          </div>
+          <div>
+            <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
+            {entry.awayConfirmedAt ? (
+              <span className="ml-2 text-[var(--accent)]">
+                ✓ 확정됨 ({formatDateTime(entry.awayConfirmedAt)}
+                {entry.awayConfirmedBy ? ` · ${entry.awayConfirmedBy}` : ""})
+              </span>
+            ) : (
+              <span className="ml-2 text-[var(--muted)]">미확정</span>
+            )}
+          </div>
+        </div>
+
+        {match.sets.length === 0 ? (
+          <p className="text-[var(--muted)]">이 경기에 등록된 세트가 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--card-border)] bg-black/20 text-left text-[var(--muted)]">
+                  <th className="px-4 py-3 font-medium">세트</th>
+                  <th className="px-4 py-3 font-medium" style={{ color: match.homeTeam.color }}>
+                    {match.homeTeam.name}
+                  </th>
+                  <th className="px-4 py-3 font-medium" style={{ color: match.awayTeam.color }}>
+                    {match.awayTeam.name}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {match.sets.map((set) => (
+                  <tr
+                    key={set.id}
+                    className="border-b border-[var(--card-border)]/60 last:border-b-0"
+                  >
+                    <td className="px-4 py-3">
+                      <span className="font-medium text-[var(--foreground)]">
+                        {getTierBracketLabel(set.tierBracket)}
+                      </span>
+                      {set.mapName ? (
+                        <span className="ml-1 text-[var(--muted)]">· {set.mapName}</span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      {renderPlayerCell(
+                        match.homeTeam,
+                        set,
+                        homeSelections,
+                        setHomeSelections,
+                        false,
+                        false,
+                        slots.home,
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {renderPlayerCell(
+                        match.awayTeam,
+                        set,
+                        awaySelections,
+                        setAwaySelections,
+                        false,
+                        false,
+                        slots.away,
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Link
@@ -434,57 +600,46 @@ export function EntryForm({ matchId }: { matchId: string }) {
         <p className="mt-1 text-sm text-[var(--muted)]">
           {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
         </p>
-        {!published ? (
-          <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-            <p>양팀 모두 엔트리를 확정하면 자동으로 공개됩니다.</p>
-            <p>
-              한쪽만 확정한 경우에도 상대팀 확정 전까지 엔트리를 수정할 수 있습니다. 전체 공개
-              후에는 누구도 엔트리를 수정할 수 없습니다.
-            </p>
-          </div>
-        ) : null}
+        <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+          <p>양팀 모두 엔트리를 확정하면 자동으로 공개됩니다.</p>
+          <p>
+            한쪽만 확정한 경우에도 상대팀 확정 전까지 엔트리를 수정할 수 있습니다. 전체 공개
+            후에는 누구도 엔트리를 수정할 수 없습니다.
+          </p>
+        </div>
       </article>
 
-      {permissions.isPublic ? (
-        <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
-          <p className="text-sm text-emerald-300">
-            공개된 엔트리입니다. 팀·역할 선택 없이 전체 엔트리를 조회할 수 있습니다. 엔트리 수정은
-            불가능하며, 경기 중 선수 교체는 경기결과 입력에서 처리합니다.
+      <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-sm">
+        {!me?.loggedIn ? (
+          <p className="text-[var(--muted)]">
+            엔트리 수정은 Discord 로그인 후, 로스터에 연결된 팀장·부팀장만 가능합니다.{" "}
+            <Link href="/login" className="text-[var(--accent)] hover:underline">
+              로그인
+            </Link>
           </p>
-        </section>
-      ) : (
-        <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-sm">
-          {!me?.loggedIn ? (
-            <p className="text-[var(--muted)]">
-              엔트리 수정은 Discord 로그인 후, 로스터에 연결된 팀장·부팀장만 가능합니다.{" "}
-              <Link href="/login" className="text-[var(--accent)] hover:underline">
-                로그인
-              </Link>
-            </p>
-          ) : me.isStaff && !me.isAdmin ? (
-            <p className="text-[var(--muted)]">
-              운영진은 엔트리를 수정할 수 없습니다. 해당 팀 팀장·부팀장에게 요청하세요.
-            </p>
-          ) : me.isAdmin ? (
-            <p className="text-[var(--foreground)]">
-              관리자 권한으로 양팀 엔트리를 관리할 수 있습니다.
-            </p>
-          ) : !me.player ? (
-            <p className="text-[var(--muted)]">
-              Discord 계정이 로스터 선수와 연결되지 않았습니다. 운영진에게 연결을 요청하세요.
-            </p>
-          ) : permissions.needsSelection ? (
-            <p className="text-[var(--muted)]">
-              {me.player.nickname} ({actingRoleLabel(me.player.role)}) — 이 경기의 엔트리 수정
-              권한이 없습니다.
-            </p>
-          ) : (
-            <p className="text-[var(--foreground)]">
-              {me.player.nickname} ({actingRoleLabel(me.player.role)})으로 엔트리를 작성합니다.
-            </p>
-          )}
-        </section>
-      )}
+        ) : me.isStaff && !me.isAdmin ? (
+          <p className="text-[var(--muted)]">
+            운영진은 엔트리를 수정할 수 없습니다. 해당 팀 팀장·부팀장에게 요청하세요.
+          </p>
+        ) : me.isAdmin ? (
+          <p className="text-[var(--foreground)]">
+            관리자 권한으로 양팀 엔트리를 관리할 수 있습니다.
+          </p>
+        ) : !me.player ? (
+          <p className="text-[var(--muted)]">
+            Discord 계정이 로스터 선수와 연결되지 않았습니다. 운영진에게 연결을 요청하세요.
+          </p>
+        ) : permissions.needsSelection ? (
+          <p className="text-[var(--muted)]">
+            {me.player.nickname} ({actingRoleLabel(me.player.role)}) — 이 경기의 엔트리 수정
+            권한이 없습니다.
+          </p>
+        ) : (
+          <p className="text-[var(--foreground)]">
+            {me.player.nickname} ({actingRoleLabel(me.player.role)})으로 엔트리를 작성합니다.
+          </p>
+        )}
+      </section>
 
       <div className="flex flex-wrap gap-4 text-sm">
         <div>
@@ -601,26 +756,31 @@ export function EntryForm({ matchId }: { matchId: string }) {
             >
               엔트리 확정
             </button>
-            {permissions.canResetHome &&
-            (adminEditingBoth || editingTeamId === match.homeTeam.id) ? (
-              <button
-                type="button"
-                onClick={() => void handleReset(match.homeTeam.id, match.homeTeam.name)}
-                disabled={saving}
-                className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400 disabled:opacity-50"
-              >
-                {adminEditingBoth ? `${match.homeTeam.name} 초기화` : "엔트리 초기화"}
-              </button>
+            {adminEditingBoth && resetTarget ? (
+              <label className="flex flex-col gap-1 text-sm">
+                초기화 대상
+                <select
+                  value={adminResetTeamId ?? match.homeTeam.id}
+                  onChange={(event) => setAdminResetTeamId(event.target.value)}
+                  className={FORM_SELECT_CLASS}
+                >
+                  {permissions.canResetHome ? (
+                    <option value={match.homeTeam.id}>{match.homeTeam.name}</option>
+                  ) : null}
+                  {permissions.canResetAway ? (
+                    <option value={match.awayTeam.id}>{match.awayTeam.name}</option>
+                  ) : null}
+                </select>
+              </label>
             ) : null}
-            {permissions.canResetAway &&
-            (adminEditingBoth || editingTeamId === match.awayTeam.id) ? (
+            {resetTarget ? (
               <button
                 type="button"
-                onClick={() => void handleReset(match.awayTeam.id, match.awayTeam.name)}
+                onClick={() => void handleResetClick()}
                 disabled={saving}
                 className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400 disabled:opacity-50"
               >
-                {adminEditingBoth ? `${match.awayTeam.name} 초기화` : "엔트리 초기화"}
+                초기화
               </button>
             ) : null}
           </div>
