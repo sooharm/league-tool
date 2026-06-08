@@ -27,7 +27,7 @@ export default async function LoginPage() {
         ) : (
           <>
             <p className="text-sm text-[var(--muted)]">
-              팀장·부팀장·운영진은 Discord 계정 연결 후 수정 기능을 사용할 수 있습니다.
+              팀장·부팀장·운영진은 Discord 로그인 후 각자 권한에 맞는 기능을 사용할 수 있습니다.
             </p>
             <DiscordAuthButton session={session} />
           </>

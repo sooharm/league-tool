@@ -6,11 +6,11 @@ import {
   matchToAdminInput,
 } from "@/lib/match-admin-api";
 import type { MatchAdminInput } from "@/lib/match-admin";
-import { requireStaffContext } from "@/lib/permissions";
+import { requireScheduleContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function GET() {
-  const authResult = await requireStaffContext();
+  const authResult = await requireScheduleContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
@@ -39,7 +39,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireScheduleContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }

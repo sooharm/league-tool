@@ -1,4 +1,9 @@
-import { canManageRoster, getAuthContext, getMatchPermissions } from "@/lib/permissions";
+import {
+  canManageRoster,
+  canManageSchedule,
+  getAuthContext,
+  getMatchPermissions,
+} from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -28,7 +33,7 @@ export async function GET(request: Request) {
     isStaff: context.isStaff,
     player: context.player,
     canManageRoster: canManageRoster(context),
-    canManageSchedule: context.isStaff,
+    canManageSchedule: canManageSchedule(context),
     canEditRules: context.isStaff,
     match,
   });

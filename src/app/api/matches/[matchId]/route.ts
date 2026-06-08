@@ -5,13 +5,13 @@ import {
   updateMatch,
 } from "@/lib/match-admin-api";
 import type { MatchAdminInput } from "@/lib/match-admin";
-import { requireStaffContext } from "@/lib/permissions";
+import { requireScheduleContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 type RouteContext = { params: Promise<{ matchId: string }> };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireScheduleContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
@@ -33,7 +33,7 @@ export async function GET(_request: Request, context: RouteContext) {
 }
 
 export async function PUT(request: Request, context: RouteContext) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireScheduleContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }
@@ -75,7 +75,7 @@ export async function PUT(request: Request, context: RouteContext) {
 }
 
 export async function DELETE(_request: Request, context: RouteContext) {
-  const authResult = await requireStaffContext();
+  const authResult = await requireScheduleContext();
   if (authResult instanceof NextResponse) {
     return authResult;
   }

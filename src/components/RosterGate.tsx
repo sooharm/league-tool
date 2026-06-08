@@ -18,7 +18,7 @@ export async function RosterGate({
       <PageShell title={title} description={description}>
         <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-center">
           <p className="text-[var(--muted)]">
-            로스터 관리는 Discord 로그인 후, 팀장·부팀장 또는 운영진만 이용할 수 있습니다.
+            로스터 관리는 Discord 로그인 후, 운영진만 이용할 수 있습니다.
           </p>
           <Link
             href="/login"
@@ -36,7 +36,7 @@ export async function RosterGate({
       <PageShell title={title} description={description}>
         <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-6 text-center">
           <p className="text-[var(--muted)]">
-            로스터에 연결된 팀장·부팀장 또는 운영진만 접근할 수 있습니다.
+            운영진만 접근할 수 있습니다.
           </p>
         </div>
       </PageShell>

@@ -11,7 +11,7 @@ export default async function ScheduleManagePage() {
 
   if (!season) {
     return (
-      <StaffGate title="일정 관리">
+      <StaffGate title="일정 관리" access="schedule">
         <p className="text-[var(--muted)]">활성 시즌이 없습니다.</p>
       </StaffGate>
     );
@@ -24,6 +24,7 @@ export default async function ScheduleManagePage() {
     <StaffGate
       title="일정 관리"
       description="경기 대진, 일정, 세트 구성을 직접 수정합니다."
+      access="schedule"
     >
       <MatchManager
         initialData={{

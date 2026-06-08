@@ -96,26 +96,22 @@ export function isTeamLeader(context: AuthContext | null) {
 }
 
 export function canManageRoster(context: AuthContext | null) {
+  return Boolean(context?.isStaff);
+}
+
+export function canManageSchedule(context: AuthContext | null) {
   return Boolean(context?.isStaff || isTeamLeader(context));
 }
 
 export function assertRosterTeamPermission(
   context: AuthContext,
-  teamId: string,
+  _teamId: string,
 ): NextResponse | null {
   if (context.isStaff) {
     return null;
   }
 
-  if (
-    context.player &&
-    isLeadershipRole(context.player.role) &&
-    context.player.teamId === teamId
-  ) {
-    return null;
-  }
-
-  return forbidden("자신의 팀 로스터만 관리할 수 있습니다.");
+  return forbidden("운영진만 로스터를 관리할 수 있습니다.");
 }
 
 export async function requireRosterContext(): Promise<AuthContext | NextResponse> {
@@ -125,7 +121,20 @@ export async function requireRosterContext(): Promise<AuthContext | NextResponse
   }
 
   if (!canManageRoster(context)) {
-    return forbidden("팀장·부팀장 또는 운영진만 로스터를 관리할 수 있습니다.");
+    return forbidden("운영진만 로스터를 관리할 수 있습니다.");
+  }
+
+  return context;
+}
+
+export async function requireScheduleContext(): Promise<AuthContext | NextResponse> {
+  const context = await requireAuthContext();
+  if (context instanceof NextResponse) {
+    return context;
+  }
+
+  if (!canManageSchedule(context)) {
+    return forbidden("팀장·부팀장 또는 운영진만 일정을 관리할 수 있습니다.");
   }
 
   return context;

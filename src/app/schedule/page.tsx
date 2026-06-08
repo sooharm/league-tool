@@ -2,7 +2,7 @@ import { EntrySubmitLink } from "@/components/EntryLinkIcon";
 import { PageShell } from "@/components/PageShell";
 import Link from "next/link";
 import { getActiveSeason, getScheduleMatches } from "@/lib/data";
-import { canManageStaffTools, getAuthContext } from "@/lib/permissions";
+import { canManageSchedule, getAuthContext } from "@/lib/permissions";
 import { getSetEntryPlayers, isPublished } from "@/lib/entry";
 import { formatScheduleDate } from "@/lib/match-display";
 import { getTierBracketLabel } from "@/lib/standings";
@@ -31,7 +31,7 @@ export default async function SchedulePage() {
       title="일정"
       description="경기 예정 일정과 엔트리를 확인합니다. 결과가 입력되면 이 목록에서 사라집니다."
     >
-      {canManageStaffTools(auth) ? (
+      {canManageSchedule(auth) ? (
         <div className="mb-6">
           <Link
             href="/schedule/manage"
