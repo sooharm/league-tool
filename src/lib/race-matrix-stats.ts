@@ -57,7 +57,7 @@ export function calculateRaceMatrixStats(
   for (const match of matches) {
     for (const set of match.sets) {
       const result = set.result;
-      if (!result) continue;
+      if (!result || result.isForfeit || !result.loserPlayer) continue;
 
       const setMapName = set.mapName?.trim();
       if (mapFilter && setMapName !== mapFilter) continue;

@@ -11,6 +11,7 @@ export type PlayerSetHistoryEntry = {
   opponentNickname: string;
   mapName: string | null;
   outcome: "win" | "loss";
+  isForfeitWin?: boolean;
 };
 
 type PlayerSetOutcome = "W" | "L";
@@ -85,12 +86,15 @@ export function calculatePlayerSetHistory(
       if (set.result.winnerPlayerId === playerId) {
         entries.push({
           ...base,
-          opponentNickname: nicknames.get(set.result.loserPlayerId) ?? "알 수 없음",
+          opponentNickname: set.result.isForfeit
+            ? "기권"
+            : (nicknames.get(set.result.loserPlayerId ?? "") ?? "알 수 없음"),
           outcome: "win",
+          isForfeitWin: set.result.isForfeit,
         });
       }
 
-      if (set.result.loserPlayerId === playerId) {
+      if (!set.result.isForfeit && set.result.loserPlayerId === playerId) {
         entries.push({
           ...base,
           opponentNickname: nicknames.get(set.result.winnerPlayerId) ?? "알 수 없음",
@@ -108,7 +112,7 @@ export function calculatePlayerSetHistory(
 
 export function formatPlayerSetHistoryLine(entry: PlayerSetHistoryEntry) {
   const mapLabel = entry.mapName ? `(${entry.mapName})` : "";
-  const resultLabel = entry.outcome === "win" ? "승리" : "패배";
+  const resultLabel = entry.isForfeitWin ? "기권승" : entry.outcome === "win" ? "승리" : "패배";
   const dateLabel = formatMatchDate(entry.matchDate ? new Date(entry.matchDate) : null);
   return `${dateLabel} vs ${entry.opponentNickname} ${mapLabel} ${resultLabel}`.trim();
 }
@@ -161,8 +165,9 @@ export function calculatePlayerDetailStandings(
     week: number;
     orderIndex: number;
     matchId: string;
+    isForfeit: boolean;
     winnerPlayerId: string;
-    loserPlayerId: string;
+    loserPlayerId: string | null;
     winnerTier: number;
     loserTier: number;
   }[] = [];
@@ -172,24 +177,23 @@ export function calculatePlayerDetailStandings(
       if (!set.result) continue;
 
       const result = set.result as typeof set.result & {
+        isForfeit?: boolean;
         winnerPlayer?: { tier: number };
         loserPlayer?: { tier: number };
       };
-
-      const winnerTier =
-        result.winnerPlayer?.tier ?? stats.get(result.winnerPlayerId)?.tier ?? 0;
-      const loserTier =
-        result.loserPlayer?.tier ?? stats.get(result.loserPlayerId)?.tier ?? 0;
 
       events.push({
         playedAt: result.playedAt,
         week: match.week,
         orderIndex: set.orderIndex,
         matchId: match.id,
+        isForfeit: result.isForfeit ?? false,
         winnerPlayerId: result.winnerPlayerId,
         loserPlayerId: result.loserPlayerId,
-        winnerTier,
-        loserTier,
+        winnerTier:
+          result.winnerPlayer?.tier ?? stats.get(result.winnerPlayerId)?.tier ?? 0,
+        loserTier:
+          result.loserPlayer?.tier ?? stats.get(result.loserPlayerId ?? "")?.tier ?? 0,
       });
     }
   }
@@ -197,8 +201,15 @@ export function calculatePlayerDetailStandings(
   sortChronologicalSetEvents(events);
 
   for (const event of events) {
+    if (event.isForfeit) {
+      const winner = stats.get(event.winnerPlayerId);
+      if (winner) winner.wins += 1;
+      outcomes.get(event.winnerPlayerId)?.push("W");
+      continue;
+    }
+
     const winner = stats.get(event.winnerPlayerId);
-    const loser = stats.get(event.loserPlayerId);
+    const loser = event.loserPlayerId ? stats.get(event.loserPlayerId) : null;
 
     if (winner) {
       winner.wins += 1;
@@ -209,7 +220,9 @@ export function calculatePlayerDetailStandings(
     if (loser) loser.losses += 1;
 
     outcomes.get(event.winnerPlayerId)?.push("W");
-    outcomes.get(event.loserPlayerId)?.push("L");
+    if (event.loserPlayerId) {
+      outcomes.get(event.loserPlayerId)?.push("L");
+    }
   }
 
   return Array.from(stats.values())

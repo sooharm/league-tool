@@ -2,6 +2,10 @@
 
 import { MapSelect } from "@/components/MapSelect";
 import { FORM_SELECT_CLASS } from "@/lib/form-styles";
+import {
+  FORFEIT_PLAYER_VALUE,
+  isForfeitPlayerValue,
+} from "@/lib/results";
 import { getTierBracketLabel } from "@/lib/standings";
 import type { Race } from "@prisma/client";
 import Link from "next/link";
@@ -61,6 +65,22 @@ function formatDate(date: string | null) {
 
 function playerLabel(player: PlayerOption) {
   return `${player.nickname} (${player.tier}티어, ${player.race})`;
+}
+
+function isSetResultComplete(selection: SetSelection) {
+  const homeForfeit = isForfeitPlayerValue(selection.homePlayerId);
+  const awayForfeit = isForfeitPlayerValue(selection.awayPlayerId);
+
+  if (homeForfeit && awayForfeit) return false;
+  if (!selection.winnerSide) return false;
+  if (homeForfeit) {
+    return !!selection.awayPlayerId && !awayForfeit;
+  }
+  if (awayForfeit) {
+    return !!selection.homePlayerId && !homeForfeit;
+  }
+
+  return !!selection.homePlayerId && !!selection.awayPlayerId;
 }
 
 function initSelections(sets: SetRow[]) {
@@ -138,10 +158,31 @@ export function ResultForm({ matchId }: { matchId: string }) {
   }, [matchId]);
 
   function updateSelection(setId: string, patch: Partial<SetSelection>) {
-    setSelections((prev) => ({
-      ...prev,
-      [setId]: { ...prev[setId], ...patch },
-    }));
+    setSelections((prev) => {
+      const current = prev[setId];
+      if (!current) return prev;
+
+      const next = { ...current, ...patch };
+      const homeForfeit = isForfeitPlayerValue(next.homePlayerId);
+      const awayForfeit = isForfeitPlayerValue(next.awayPlayerId);
+
+      if (homeForfeit && awayForfeit) {
+        next.winnerSide = "";
+      } else if (homeForfeit && next.awayPlayerId && !awayForfeit) {
+        next.winnerSide = "away";
+      } else if (awayForfeit && next.homePlayerId && !homeForfeit) {
+        next.winnerSide = "home";
+      } else if (!homeForfeit && !awayForfeit) {
+        if (next.winnerSide === "home" && !next.homePlayerId) {
+          next.winnerSide = "";
+        }
+        if (next.winnerSide === "away" && !next.awayPlayerId) {
+          next.winnerSide = "";
+        }
+      }
+
+      return { ...prev, [setId]: next };
+    });
   }
 
   async function handleSave() {
@@ -153,8 +194,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
         if (!selection) return null;
 
         const hasMap = selection.mapName.trim().length > 0;
-        const isComplete =
-          selection.homePlayerId && selection.awayPlayerId && selection.winnerSide;
+        const isComplete = isSetResultComplete(selection);
 
         if (!hasMap && !isComplete) {
           return null;
@@ -370,6 +410,17 @@ export function ResultForm({ matchId }: { matchId: string }) {
                 awayPlayerId: "",
                 winnerSide: "" as const,
               };
+              const homeForfeit = isForfeitPlayerValue(selection.homePlayerId);
+              const awayForfeit = isForfeitPlayerValue(selection.awayPlayerId);
+              const canPickHomeWin =
+                !!selection.homePlayerId &&
+                !homeForfeit &&
+                !!selection.awayPlayerId;
+              const canPickAwayWin =
+                !!selection.awayPlayerId &&
+                !awayForfeit &&
+                !!selection.homePlayerId;
+
               return (
                 <tr
                   key={set.id}
@@ -399,6 +450,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                       className={`w-full ${FORM_SELECT_CLASS}`}
                     >
                       <option value="">선수 선택</option>
+                      <option value={FORFEIT_PLAYER_VALUE}>기권</option>
                       {match.homeTeam.players.map((player) => (
                         <option key={player.id} value={player.id}>
                           {playerLabel(player)}
@@ -415,6 +467,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                       className={`w-full ${FORM_SELECT_CLASS}`}
                     >
                       <option value="">선수 선택</option>
+                      <option value={FORFEIT_PLAYER_VALUE}>기권</option>
                       {match.awayTeam.players.map((player) => (
                         <option key={player.id} value={player.id}>
                           {playerLabel(player)}
@@ -426,7 +479,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                     <div className="flex gap-2">
                       <button
                         type="button"
-                        disabled={!selection.homePlayerId || !selection.awayPlayerId}
+                        disabled={!canPickHomeWin}
                         onClick={() => updateSelection(set.id, { winnerSide: "home" })}
                         className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                           selection.winnerSide === "home"
@@ -443,7 +496,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                       </button>
                       <button
                         type="button"
-                        disabled={!selection.homePlayerId || !selection.awayPlayerId}
+                        disabled={!canPickAwayWin}
                         onClick={() => updateSelection(set.id, { winnerSide: "away" })}
                         className={`rounded-lg border px-3 py-1.5 text-xs transition ${
                           selection.winnerSide === "away"
@@ -489,11 +542,11 @@ export function ResultForm({ matchId }: { matchId: string }) {
       </div>
       </fieldset>
 
-      {!hasAceSet ? (
-        <p className="text-xs text-[var(--muted)]">
-          3:3 동점일 때 에이스결정전 세트를 추가할 수 있습니다.
-        </p>
-      ) : null}
+      <p className="text-xs text-[var(--muted)]">
+        선수 선택란에서 기권을 고르면 상대팀 승리로 처리됩니다. 기권 세트는 6인 엔트리 가산점에
+        포함되지 않습니다.
+        {!hasAceSet ? " 3:3 동점일 때 에이스결정전 세트를 추가할 수 있습니다." : ""}
+      </p>
 
       {message ? <p className="text-sm text-[var(--accent)]">{message}</p> : null}
       {error ? <p className="text-sm text-red-400">{error}</p> : null}

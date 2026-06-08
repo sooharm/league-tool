@@ -155,7 +155,8 @@ type SixManSetResult = {
   winnerTeamId: string;
   loserTeamId: string;
   winnerPlayerId: string;
-  loserPlayerId: string;
+  loserPlayerId: string | null;
+  isForfeit?: boolean;
 };
 
 /** 6인 엔트리 판정 대상: 에이스결정전 제외, 앞에서 6세트 */
@@ -215,6 +216,19 @@ export function teamHasSixManEntryFromResults(
     const set = sets.find((item) => item.id === setId);
     if (!set?.result) {
       return null;
+    }
+
+    if (set.result.isForfeit) {
+      if (set.result.loserTeamId === teamId) {
+        continue;
+      }
+
+      if (publishedEntryPlayerIds && !publishedEntryPlayerIds.has(set.result.winnerPlayerId)) {
+        continue;
+      }
+
+      validPlayerIds.add(set.result.winnerPlayerId);
+      continue;
     }
 
     const playerId =

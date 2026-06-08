@@ -86,6 +86,12 @@ export async function PUT(request: Request, context: RouteContext) {
       if (error.message === "SAME_PLAYER") {
         return NextResponse.json({ error: "승자와 패자는 달라야 합니다." }, { status: 400 });
       }
+      if (error.message === "BOTH_FORFEIT") {
+        return NextResponse.json({ error: "양팀 모두 기권으로 처리할 수 없습니다." }, { status: 400 });
+      }
+      if (error.message === "FORFEIT_WINNER_MISMATCH") {
+        return NextResponse.json({ error: "기권 처리 시 승자는 기권하지 않은 팀이어야 합니다." }, { status: 400 });
+      }
     }
     throw error;
   }

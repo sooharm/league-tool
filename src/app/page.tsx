@@ -28,7 +28,7 @@ export default async function HomePage() {
           {
             key: "rank",
             header: "순위",
-            render: (_, index) => index + 1,
+            render: (row) => row.rank,
             className: "w-16",
           },
           {

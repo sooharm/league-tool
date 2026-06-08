@@ -6,6 +6,7 @@ import { calculateMapStats } from "@/lib/map-stats";
 import { buildDbStatsPayload } from "@/lib/race-matrix-stats";
 import { calculatePlayerDetailStandings } from "@/lib/player-stats";
 import {
+  assignTeamStandingRanks,
   calculateTeamStandings,
   type MatchWithResults,
 } from "@/lib/standings";
@@ -135,7 +136,8 @@ export async function getSeasonStandings(seasonId: string) {
     getSeasonMatches(seasonId),
   ]);
 
-  return calculateTeamStandings(teams, matches as MatchWithResults[]);
+  const standings = calculateTeamStandings(teams, matches as MatchWithResults[]);
+  return assignTeamStandingRanks(standings, matches as MatchWithResults[]);
 }
 
 export async function getSeasonMapStats(seasonId: string) {

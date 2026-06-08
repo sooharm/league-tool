@@ -126,18 +126,23 @@ export function MatchResultItem({
                         >
                           {set.result.winnerPlayer.nickname}
                         </span>{" "}
-                        W vs{" "}
-                        <span
-                          style={{
-                            color:
-                              set.result.loserTeamId === match.homeTeamId
-                                ? match.homeTeam.color
-                                : match.awayTeam.color,
-                          }}
-                        >
-                          {set.result.loserPlayer.nickname}
-                        </span>{" "}
-                        L
+                        {set.result.isForfeit ? "기권승" : "W"}{" "}
+                        {set.result.isForfeit ? null : (
+                          <>
+                            vs{" "}
+                            <span
+                              style={{
+                                color:
+                                  set.result.loserTeamId === match.homeTeamId
+                                    ? match.homeTeam.color
+                                    : match.awayTeam.color,
+                              }}
+                            >
+                              {set.result.loserPlayer?.nickname}
+                            </span>{" "}
+                            L
+                          </>
+                        )}
                       </>
                     ) : null}
                   </li>

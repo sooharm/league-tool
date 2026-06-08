@@ -25,6 +25,10 @@ export type TeamStanding = {
   setLosses: number;
 };
 
+export type RankedTeamStanding = TeamStanding & {
+  rank: number;
+};
+
 export type PlayerStanding = {
   playerId: string;
   nickname: string;
@@ -152,6 +156,118 @@ function calculateMatchPoints(match: MatchWithResults) {
   };
 }
 
+function teamWinLossDiff(team: TeamStanding) {
+  return team.wins - team.losses;
+}
+
+function isTeamStandingsTied(a: TeamStanding, b: TeamStanding) {
+  return a.points === b.points && teamWinLossDiff(a) === teamWinLossDiff(b);
+}
+
+function getStandingsTieGroup(team: TeamStanding, standings: TeamStanding[]) {
+  const diff = teamWinLossDiff(team);
+  return standings.filter(
+    (entry) => entry.points === team.points && teamWinLossDiff(entry) === diff,
+  );
+}
+
+/** 동률 그룹 내 맞대결 경기 승수 (승자승) */
+function getMiniLeagueMatchWins(
+  teamId: string,
+  groupTeamIds: globalThis.Set<string>,
+  matches: MatchWithResults[],
+) {
+  let wins = 0;
+
+  for (const match of matches) {
+    if (!groupTeamIds.has(match.homeTeamId) || !groupTeamIds.has(match.awayTeamId)) {
+      continue;
+    }
+
+    const winnerId = getMatchWinner(match);
+    if (winnerId === teamId) {
+      wins += 1;
+    }
+  }
+
+  return wins;
+}
+
+export function compareTeamStandings(
+  a: TeamStanding,
+  b: TeamStanding,
+  standings: TeamStanding[],
+  matches: MatchWithResults[],
+) {
+  if (b.points !== a.points) return b.points - a.points;
+
+  const aDiff = teamWinLossDiff(a);
+  const bDiff = teamWinLossDiff(b);
+  if (bDiff !== aDiff) return bDiff - aDiff;
+
+  if (isTeamStandingsTied(a, b)) {
+    const tieGroup = getStandingsTieGroup(a, standings);
+    const groupTeamIds = new Set(tieGroup.map((team) => team.teamId));
+
+    const aHeadToHeadWins = getMiniLeagueMatchWins(a.teamId, groupTeamIds, matches);
+    const bHeadToHeadWins = getMiniLeagueMatchWins(b.teamId, groupTeamIds, matches);
+    if (bHeadToHeadWins !== aHeadToHeadWins) {
+      return bHeadToHeadWins - aHeadToHeadWins;
+    }
+  }
+
+  return a.teamName.localeCompare(b.teamName, "ko");
+}
+
+/** 승점·승패·승자승까지 완전 동률인지 (표시 순서용 가나다순은 제외) */
+export function areTeamStandingsRankTied(
+  a: TeamStanding,
+  b: TeamStanding,
+  standings: TeamStanding[],
+  matches: MatchWithResults[],
+) {
+  if (a.points !== b.points || teamWinLossDiff(a) !== teamWinLossDiff(b)) {
+    return false;
+  }
+
+  const tieGroup = getStandingsTieGroup(a, standings);
+  if (!tieGroup.some((team) => team.teamId === b.teamId)) {
+    return false;
+  }
+
+  const groupTeamIds = new globalThis.Set(tieGroup.map((team) => team.teamId));
+  const aHeadToHeadWins = getMiniLeagueMatchWins(a.teamId, groupTeamIds, matches);
+  const bHeadToHeadWins = getMiniLeagueMatchWins(b.teamId, groupTeamIds, matches);
+
+  return aHeadToHeadWins === bHeadToHeadWins;
+}
+
+export function assignTeamStandingRanks(
+  standings: TeamStanding[],
+  matches: MatchWithResults[],
+): RankedTeamStanding[] {
+  const sorted = [...standings].sort((a, b) => compareTeamStandings(a, b, standings, matches));
+  const ranked: RankedTeamStanding[] = [];
+
+  for (let index = 0; index < sorted.length; index += 1) {
+    const team = sorted[index];
+
+    if (index === 0) {
+      ranked.push({ ...team, rank: 1 });
+      continue;
+    }
+
+    const previous = sorted[index - 1];
+    const rank = areTeamStandingsRankTied(previous, team, standings, matches)
+      ? ranked[index - 1].rank
+      : index + 1;
+
+    ranked.push({ ...team, rank });
+  }
+
+  return ranked;
+}
+
 export function calculateTeamStandings(
   teams: Team[],
   matches: MatchWithResults[],
@@ -209,13 +325,7 @@ export function calculateTeamStandings(
 
   const list = Array.from(standings.values());
 
-  return list.sort((a, b) => {
-    if (b.points !== a.points) return b.points - a.points;
-    const aDiff = a.wins - a.losses;
-    const bDiff = b.wins - b.losses;
-    if (bDiff !== aDiff) return bDiff - aDiff;
-    return a.teamName.localeCompare(b.teamName, "ko");
-  });
+  return list.sort((a, b) => compareTeamStandings(a, b, list, matches));
 }
 
 export function calculatePlayerStandings(
@@ -254,8 +364,9 @@ export function calculatePlayerStandings(
     week: number;
     orderIndex: number;
     matchId: string;
+    isForfeit: boolean;
     winnerPlayerId: string;
-    loserPlayerId: string;
+    loserPlayerId: string | null;
   }[] = [];
 
   for (const match of matches) {
@@ -267,6 +378,7 @@ export function calculatePlayerStandings(
         week: match.week,
         orderIndex: set.orderIndex,
         matchId: match.id,
+        isForfeit: set.result.isForfeit,
         winnerPlayerId: set.result.winnerPlayerId,
         loserPlayerId: set.result.loserPlayerId,
       });
@@ -283,12 +395,16 @@ export function calculatePlayerStandings(
 
   for (const event of events) {
     const winner = stats.get(event.winnerPlayerId);
-    const loser = stats.get(event.loserPlayerId);
 
     if (winner) winner.wins += 1;
-    if (loser) loser.losses += 1;
-
     outcomes.get(event.winnerPlayerId)?.push("W");
+
+    if (event.isForfeit || !event.loserPlayerId) {
+      continue;
+    }
+
+    const loser = stats.get(event.loserPlayerId);
+    if (loser) loser.losses += 1;
     outcomes.get(event.loserPlayerId)?.push("L");
   }
 

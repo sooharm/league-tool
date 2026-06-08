@@ -1,6 +1,11 @@
 import { syncMatchSixManFromResults } from "@/lib/entry-api";
 import { getSetEntryPlayers, isPublished } from "@/lib/entry";
-import { resolveMatchStatusAfterSave, type SetResultInput } from "@/lib/results";
+import {
+  FORFEIT_PLAYER_VALUE,
+  isForfeitPlayerValue,
+  resolveMatchStatusAfterSave,
+  type SetResultInput,
+} from "@/lib/results";
 import { prisma } from "@/lib/prisma";
 import type { TierBracket } from "@prisma/client";
 
@@ -68,13 +73,23 @@ export function buildResultsResponse(match: NonNullable<Awaited<ReturnType<typeo
     let awayPlayerId = entryPlayers.away?.id ?? "";
 
     if (set.result) {
-      if (set.result.winnerTeamId === match.homeTeamId) {
+      if (set.result.isForfeit) {
+        if (set.result.winnerTeamId === match.homeTeamId) {
+          winnerSide = "home";
+          homePlayerId = set.result.winnerPlayerId;
+          awayPlayerId = FORFEIT_PLAYER_VALUE;
+        } else {
+          winnerSide = "away";
+          awayPlayerId = set.result.winnerPlayerId;
+          homePlayerId = FORFEIT_PLAYER_VALUE;
+        }
+      } else if (set.result.winnerTeamId === match.homeTeamId) {
         winnerSide = "home";
         homePlayerId = set.result.winnerPlayerId;
-        awayPlayerId = set.result.loserPlayerId;
+        awayPlayerId = set.result.loserPlayerId ?? "";
       } else {
         winnerSide = "away";
-        homePlayerId = set.result.loserPlayerId;
+        homePlayerId = set.result.loserPlayerId ?? "";
         awayPlayerId = set.result.winnerPlayerId;
       }
     }
@@ -154,6 +169,54 @@ export async function validateAndSaveResults(
       continue;
     }
 
+    const homeForfeit = isForfeitPlayerValue(homePlayerId);
+    const awayForfeit = isForfeitPlayerValue(awayPlayerId);
+
+    if (homeForfeit && awayForfeit) {
+      throw new Error("BOTH_FORFEIT");
+    }
+
+    if (homeForfeit || awayForfeit) {
+      const resolvedWinnerSide = homeForfeit ? "away" : "home";
+      if (winnerSide !== resolvedWinnerSide) {
+        throw new Error("FORFEIT_WINNER_MISMATCH");
+      }
+
+      const winnerPlayerId = resolvedWinnerSide === "home" ? homePlayerId : awayPlayerId;
+      const winnerPlayer = (
+        resolvedWinnerSide === "home" ? match.homeTeam.players : match.awayTeam.players
+      ).find((player) => player.id === winnerPlayerId);
+
+      if (!winnerPlayer) {
+        throw new Error("INVALID_PLAYERS");
+      }
+
+      const winnerTeamId = resolvedWinnerSide === "home" ? match.homeTeamId : match.awayTeamId;
+      const loserTeamId = resolvedWinnerSide === "home" ? match.awayTeamId : match.homeTeamId;
+
+      await prisma.setResult.upsert({
+        where: { setId: result.setId },
+        create: {
+          setId: result.setId,
+          winnerTeamId,
+          loserTeamId,
+          winnerPlayerId,
+          loserPlayerId: null,
+          isForfeit: true,
+          playedAt: playedAtDate,
+        },
+        update: {
+          winnerTeamId,
+          loserTeamId,
+          winnerPlayerId,
+          loserPlayerId: null,
+          isForfeit: true,
+          playedAt: playedAtDate,
+        },
+      });
+      continue;
+    }
+
     const homePlayer = match.homeTeam.players.find((player) => player.id === homePlayerId);
     const awayPlayer = match.awayTeam.players.find((player) => player.id === awayPlayerId);
 
@@ -178,6 +241,7 @@ export async function validateAndSaveResults(
         loserTeamId,
         winnerPlayerId,
         loserPlayerId,
+        isForfeit: false,
         playedAt: playedAtDate,
       },
       update: {
@@ -185,6 +249,7 @@ export async function validateAndSaveResults(
         loserTeamId,
         winnerPlayerId,
         loserPlayerId,
+        isForfeit: false,
         playedAt: playedAtDate,
       },
     });

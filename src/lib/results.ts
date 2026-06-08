@@ -1,5 +1,11 @@
 import type { MatchStatus } from "@prisma/client";
 
+export const FORFEIT_PLAYER_VALUE = "__FORFEIT__";
+
+export function isForfeitPlayerValue(playerId: string | null | undefined) {
+  return playerId === FORFEIT_PLAYER_VALUE;
+}
+
 export type SetResultInput = {
   setId: string;
   mapName?: string;

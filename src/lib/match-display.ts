@@ -28,7 +28,7 @@ export type CompletedMatch = {
     result:
       | (SetResult & {
           winnerPlayer: Player;
-          loserPlayer: Player;
+          loserPlayer: Player | null;
         })
       | null;
   })[];

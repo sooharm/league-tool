@@ -137,14 +137,15 @@ model SetResult {
   winnerTeamId   String
   loserTeamId    String
   winnerPlayerId String
-  loserPlayerId  String
+  loserPlayerId  String?
+  isForfeit      Boolean  @default(false)
   playedAt       DateTime @default(now())
 
-  set          Set    @relation(fields: [setId], references: [id], onDelete: Cascade)
-  winnerTeam   Team   @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
-  loserTeam    Team   @relation("LoserTeam", fields: [loserTeamId], references: [id])
-  winnerPlayer Player @relation("WinnerPlayer", fields: [winnerPlayerId], references: [id])
-  loserPlayer  Player @relation("LoserPlayer", fields: [loserPlayerId], references: [id])
+  set          Set     @relation(fields: [setId], references: [id], onDelete: Cascade)
+  winnerTeam   Team    @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
+  loserTeam    Team    @relation("LoserTeam", fields: [loserTeamId], references: [id])
+  winnerPlayer Player  @relation("WinnerPlayer", fields: [winnerPlayerId], references: [id])
+  loserPlayer  Player? @relation("LoserPlayer", fields: [loserPlayerId], references: [id])
 }
 
 model MatchEntry {

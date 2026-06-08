@@ -7,7 +7,7 @@ export default async function RulesPage() {
   const season = await getActiveSeason();
 
   return (
-    <PageShell title="규정집" description="나무클랜 개인팀리그 규정을 확인합니다.">
+    <PageShell title="규정집" description="리그 규정을 확인합니다">
       <div className="mb-4 flex justify-end">
         <RulesEditLink />
       </div>

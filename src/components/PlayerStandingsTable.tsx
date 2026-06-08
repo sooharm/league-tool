@@ -163,7 +163,7 @@ export function PlayerStandingsTable({
       <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-sm text-[var(--muted)]">
           <p>선수 탭을 클릭하면 경기목록이 표시됩니다.</p>
-          <p>업셋은 자기보다 상위 티어(숫자가 작은 티어) 상대에게 이긴 횟수입니다.</p>
+          <p>업셋은 자신보다 상위 티어 상대에게 이긴 횟수입니다.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">

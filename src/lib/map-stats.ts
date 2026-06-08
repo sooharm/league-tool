@@ -4,7 +4,7 @@ import type { Race } from "@prisma/client";
 
 export type SetResultWithPlayers = SetResult & {
   winnerPlayer: Pick<Player, "race">;
-  loserPlayer: Pick<Player, "race">;
+  loserPlayer: Pick<Player, "race"> | null;
 };
 
 export type MatchForMapStats = {
@@ -127,7 +127,7 @@ export function calculateMapStats(matches: MatchForMapStats[]): MapStatsSummary 
   for (const match of matches) {
     for (const set of match.sets) {
       const result = set.result;
-      if (!result) continue;
+      if (!result || result.isForfeit || !result.loserPlayer) continue;
 
       const winnerRace = result.winnerPlayer.race;
       const loserRace = result.loserPlayer.race;
