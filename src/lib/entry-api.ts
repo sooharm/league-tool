@@ -191,6 +191,16 @@ export function buildEntryResponse({
       canConfirm: isAdmin
         ? !published
         : !!viewerTeamId && canSaveOrConfirm(ctx, viewerTeamId, viewerRole),
+      canResetHome:
+        !published &&
+        (isAdmin ||
+          (viewerTeamId === match.homeTeamId &&
+            canSaveOrConfirm(ctx, match.homeTeamId, viewerRole))),
+      canResetAway:
+        !published &&
+        (isAdmin ||
+          (viewerTeamId === match.awayTeamId &&
+            canSaveOrConfirm(ctx, match.awayTeamId, viewerRole))),
       viewOnly:
         published &&
         (!isAdmin && (!viewerTeamId || viewerRole === "MEMBER" || viewerRole === null)),
@@ -255,6 +265,38 @@ export function getConfirmedByForTeam(
     throw new Error("INVALID_TEAM");
   }
   return confirmedBy.trim();
+}
+
+export async function resetTeamEntrySlots({
+  entryId,
+  teamId,
+  match,
+}: {
+  entryId: string;
+  teamId: string;
+  match: { homeTeamId: string; awayTeamId: string };
+}) {
+  const isHome = teamId === match.homeTeamId;
+  const isAway = teamId === match.awayTeamId;
+
+  if (!isHome && !isAway) {
+    throw new Error("INVALID_TEAM");
+  }
+
+  await prisma.entrySlot.deleteMany({
+    where: { entryId, teamId },
+  });
+
+  return prisma.matchEntry.update({
+    where: { id: entryId },
+    data: {
+      homeConfirmedAt: isHome ? null : undefined,
+      awayConfirmedAt: isAway ? null : undefined,
+      homeConfirmedBy: isHome ? null : undefined,
+      awayConfirmedBy: isAway ? null : undefined,
+      publishedAt: null,
+    },
+  });
 }
 
 export async function confirmEntryTeam({

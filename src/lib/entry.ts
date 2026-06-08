@@ -55,7 +55,7 @@ export function canEditEntry(entry: EntryWithTeams, teamId: string): boolean {
     return false;
   }
 
-  // 실험 단계: 팀 확정 후에도 팀장/부팀장이 수정 가능 (양팀 공개 전까지)
+  // 양팀 모두 확정(전체 공개) 전까지 해당 팀 엔트리 수정 가능 (한쪽만 확정해도 수정 가능)
   return teamId === entry.homeTeamId || teamId === entry.awayTeamId;
 }
 
@@ -100,6 +100,10 @@ export function canSaveOrConfirm(
   teamId: string,
   actingRole: ActingRole,
 ): boolean {
+  if (isPublished(entry)) {
+    return false;
+  }
+
   if (!isLeadershipRole(actingRole)) {
     return false;
   }

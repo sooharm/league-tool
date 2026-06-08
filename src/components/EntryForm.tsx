@@ -66,6 +66,8 @@ type EntryResponse = {
     canEditAway: boolean;
     canSave: boolean;
     canConfirm: boolean;
+    canResetHome: boolean;
+    canResetAway: boolean;
     viewOnly: boolean;
     needsSelection: boolean;
     isPublic: boolean;
@@ -272,6 +274,47 @@ export function EntryForm({ matchId }: { matchId: string }) {
     applyEntryResponse(json as EntryResponse);
   }
 
+  async function handleReset(teamId: string, teamName: string) {
+    if (
+      !confirm(
+        `${teamName} 엔트리를 초기화할까요?\n작성한 선수 지정과 확정 상태가 모두 사라집니다.`,
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/entry/${matchId}/reset`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ teamId }),
+      });
+      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(json.error ?? "초기화에 실패했습니다.");
+      }
+
+      const entryData = json as EntryResponse;
+      applyEntryResponse(entryData);
+
+      if (teamId === entryData.match.homeTeam.id) {
+        setHomeSelections({});
+      } else {
+        setAwaySelections({});
+      }
+
+      setMessage(`${teamName} 엔트리가 초기화되었습니다.`);
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : "초기화에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleConfirm() {
     if (!data || !confirmedBy.trim()) return;
     if (!adminEditingBoth && !editingTeamId) return;
@@ -388,7 +431,10 @@ export function EntryForm({ matchId }: { matchId: string }) {
         {!published ? (
           <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
             <p>양팀 모두 엔트리를 확정하면 자동으로 공개됩니다.</p>
-            <p>엔트리 공개 전에는 엔트리를 수정할 수 있으며, 공개 후에는 수정이 불가능합니다.</p>
+            <p>
+              한쪽만 확정한 경우에도 상대팀 확정 전까지 엔트리를 수정할 수 있습니다. 전체 공개
+              후에는 누구도 엔트리를 수정할 수 없습니다.
+            </p>
           </div>
         ) : null}
       </article>
@@ -396,7 +442,8 @@ export function EntryForm({ matchId }: { matchId: string }) {
       {permissions.isPublic ? (
         <section className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
           <p className="text-sm text-emerald-300">
-            공개된 엔트리입니다. 팀·역할 선택 없이 전체 엔트리를 조회할 수 있습니다.
+            공개된 엔트리입니다. 팀·역할 선택 없이 전체 엔트리를 조회할 수 있습니다. 엔트리 수정은
+            불가능하며, 경기 중 선수 교체는 경기결과 입력에서 처리합니다.
           </p>
         </section>
       ) : (
@@ -548,6 +595,28 @@ export function EntryForm({ matchId }: { matchId: string }) {
             >
               엔트리 확정
             </button>
+            {permissions.canResetHome &&
+            (adminEditingBoth || editingTeamId === match.homeTeam.id) ? (
+              <button
+                type="button"
+                onClick={() => void handleReset(match.homeTeam.id, match.homeTeam.name)}
+                disabled={saving}
+                className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400 disabled:opacity-50"
+              >
+                {adminEditingBoth ? `${match.homeTeam.name} 초기화` : "엔트리 초기화"}
+              </button>
+            ) : null}
+            {permissions.canResetAway &&
+            (adminEditingBoth || editingTeamId === match.awayTeam.id) ? (
+              <button
+                type="button"
+                onClick={() => void handleReset(match.awayTeam.id, match.awayTeam.name)}
+                disabled={saving}
+                className="rounded-lg border border-red-500/40 px-4 py-2 text-sm text-red-300 transition hover:border-red-400 disabled:opacity-50"
+              >
+                {adminEditingBoth ? `${match.awayTeam.name} 초기화` : "엔트리 초기화"}
+              </button>
+            ) : null}
           </div>
         </section>
       ) : null}
