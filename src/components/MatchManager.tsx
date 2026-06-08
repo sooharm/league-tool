@@ -139,6 +139,24 @@ export function MatchManager({ initialData }: { initialData: AdminData }) {
     });
   }
 
+  function moveSet(index: number, direction: -1 | 1) {
+    setForm((prev) => {
+      if (!prev) return prev;
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= prev.sets.length) {
+        return prev;
+      }
+
+      const sets = [...prev.sets];
+      [sets[index], sets[targetIndex]] = [sets[targetIndex], sets[index]];
+
+      return {
+        ...prev,
+        sets: sets.map((set, i) => ({ ...set, orderIndex: i + 1 })),
+      };
+    });
+  }
+
   async function handleSave() {
     if (!form) return;
 
@@ -389,11 +407,33 @@ export function MatchManager({ initialData }: { initialData: AdminData }) {
                   {form.sets.map((set, index) => (
                     <div
                       key={set.id ?? `new-${index}`}
-                      className="grid gap-2 rounded-lg border border-[var(--card-border)]/60 bg-black/10 p-3 sm:grid-cols-[48px_1fr_1fr_40px]"
+                      className="grid gap-2 rounded-lg border border-[var(--card-border)]/60 bg-black/10 p-3 sm:grid-cols-[72px_1fr_1fr_40px]"
                     >
-                      <span className="self-center text-sm font-medium text-[var(--muted)]">
-                        {set.orderIndex}
-                      </span>
+                      <div className="flex flex-col items-center gap-1 self-center">
+                        <span className="text-sm font-medium text-[var(--muted)]">
+                          {set.orderIndex}
+                        </span>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => moveSet(index, -1)}
+                            disabled={index === 0}
+                            className="rounded border border-[var(--card-border)] px-1.5 py-0.5 text-xs disabled:opacity-30"
+                            title="위로"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSet(index, 1)}
+                            disabled={index === form.sets.length - 1}
+                            className="rounded border border-[var(--card-border)] px-1.5 py-0.5 text-xs disabled:opacity-30"
+                            title="아래로"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
                       <select
                         value={set.tierBracket}
                         onChange={(e) =>

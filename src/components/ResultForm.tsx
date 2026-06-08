@@ -3,6 +3,7 @@
 import { MapSelect } from "@/components/MapSelect";
 import { FORM_SELECT_CLASS } from "@/lib/form-styles";
 import { getTierBracketLabel } from "@/lib/standings";
+import { filterPlayersByTierBracket } from "@/lib/tier-brackets";
 import type { Race } from "@prisma/client";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -63,13 +64,38 @@ function playerLabel(player: PlayerOption) {
   return `${player.nickname} (${player.tier}티어, ${player.race})`;
 }
 
-function initSelections(sets: SetRow[]) {
+function pickEligiblePlayerId(
+  players: PlayerOption[],
+  tierBracket: string,
+  playerId: string | null | undefined,
+) {
+  if (!playerId) return "";
+  const eligible = filterPlayersByTierBracket(players, tierBracket);
+  return eligible.some((player) => player.id === playerId) ? playerId : "";
+}
+
+function initSelections(
+  sets: SetRow[],
+  homePlayers: PlayerOption[],
+  awayPlayers: PlayerOption[],
+) {
   const map: Record<string, SetSelection> = {};
   for (const set of sets) {
+    const homePlayerId = pickEligiblePlayerId(
+      homePlayers,
+      set.tierBracket,
+      set.current.homePlayerId ?? set.defaults.homePlayerId,
+    );
+    const awayPlayerId = pickEligiblePlayerId(
+      awayPlayers,
+      set.tierBracket,
+      set.current.awayPlayerId ?? set.defaults.awayPlayerId,
+    );
+
     map[set.id] = {
       mapName: set.mapName ?? "",
-      homePlayerId: set.current.homePlayerId ?? set.defaults.homePlayerId ?? "",
-      awayPlayerId: set.current.awayPlayerId ?? set.defaults.awayPlayerId ?? "",
+      homePlayerId,
+      awayPlayerId,
       winnerSide: set.current.winnerSide ?? "",
     };
   }
@@ -101,7 +127,13 @@ export function ResultForm({ matchId }: { matchId: string }) {
 
       const resultData = json as ResultsResponse;
       setData(resultData);
-      setSelections(initSelections(resultData.match.sets));
+      setSelections(
+        initSelections(
+          resultData.match.sets,
+          resultData.match.homeTeam.players,
+          resultData.match.awayTeam.players,
+        ),
+      );
       if (resultData.match.scheduledAt) {
         setPlayedAt((prev) => prev || resultData.match.scheduledAt!.slice(0, 10));
       }
@@ -115,6 +147,17 @@ export function ResultForm({ matchId }: { matchId: string }) {
 
   useEffect(() => {
     fetchResults();
+  }, [fetchResults]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void fetchResults();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [fetchResults]);
 
   useEffect(() => {
@@ -189,7 +232,13 @@ export function ResultForm({ matchId }: { matchId: string }) {
 
       const resultData = json as ResultsResponse;
       setData(resultData);
-      setSelections(initSelections(resultData.match.sets));
+      setSelections(
+        initSelections(
+          resultData.match.sets,
+          resultData.match.homeTeam.players,
+          resultData.match.awayTeam.players,
+        ),
+      );
       const savedResults = results.filter((r) => "winnerSide" in r && r.winnerSide).length;
       setMessage(
         savedResults > 0
@@ -256,7 +305,13 @@ export function ResultForm({ matchId }: { matchId: string }) {
 
       const resultData = json as ResultsResponse;
       setData(resultData);
-      setSelections(initSelections(resultData.match.sets));
+      setSelections(
+        initSelections(
+          resultData.match.sets,
+          resultData.match.homeTeam.players,
+          resultData.match.awayTeam.players,
+        ),
+      );
       setMessage("에이스결정전 세트가 추가되었습니다.");
     } catch (addError) {
       setError(addError instanceof Error ? addError.message : "세트 추가에 실패했습니다.");
@@ -359,6 +414,14 @@ export function ResultForm({ matchId }: { matchId: string }) {
                 awayPlayerId: "",
                 winnerSide: "" as const,
               };
+              const homePlayers = filterPlayersByTierBracket(
+                match.homeTeam.players,
+                set.tierBracket,
+              );
+              const awayPlayers = filterPlayersByTierBracket(
+                match.awayTeam.players,
+                set.tierBracket,
+              );
 
               return (
                 <tr
@@ -389,7 +452,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                       className={`w-full ${FORM_SELECT_CLASS}`}
                     >
                       <option value="">선수 선택</option>
-                      {match.homeTeam.players.map((player) => (
+                      {homePlayers.map((player) => (
                         <option key={player.id} value={player.id}>
                           {playerLabel(player)}
                         </option>
@@ -405,7 +468,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
                       className={`w-full ${FORM_SELECT_CLASS}`}
                     >
                       <option value="">선수 선택</option>
-                      {match.awayTeam.players.map((player) => (
+                      {awayPlayers.map((player) => (
                         <option key={player.id} value={player.id}>
                           {playerLabel(player)}
                         </option>
