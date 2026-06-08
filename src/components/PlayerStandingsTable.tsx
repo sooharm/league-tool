@@ -168,7 +168,7 @@ export function PlayerStandingsTable({
       <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="space-y-2 text-sm text-[var(--muted)]">
           <p>선수 탭을 클릭하면 경기목록이 표시됩니다.</p>
-          <p>업셋은 자신보다 상위 티어 상대에게 이긴 횟수입니다.</p>
+          <p>괄호 안 숫자는 업셋 횟수입니다. (상위 티어 상대 승리 기준)</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -343,12 +343,7 @@ export function PlayerStandingsTable({
                         </div>
                       </td>
                       <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">
-                        <span className="sm:hidden">
-                          {row.wins}승 {row.losses}패
-                        </span>
-                        <span className="hidden sm:inline">
-                          {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
-                        </span>
+                        {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
                       </td>
                       <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">{row.games}</td>
                       <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">
