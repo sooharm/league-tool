@@ -610,33 +610,27 @@ export function EntryForm({ matchId }: { matchId: string }) {
       </article>
 
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-sm">
-        {!me?.loggedIn ? (
-          <p className="text-[var(--muted)]">
-            엔트리 수정은 Discord 로그인 후, 로스터에 연결된 팀장·부팀장만 가능합니다.{" "}
-            <Link href="/login" className="text-[var(--accent)] hover:underline">
-              로그인
-            </Link>
-          </p>
-        ) : me.isStaff && !me.isAdmin ? (
-          <p className="text-[var(--muted)]">
-            운영진은 엔트리를 수정할 수 없습니다. 해당 팀 팀장·부팀장에게 요청하세요.
-          </p>
-        ) : me.isAdmin ? (
+        {me?.isAdmin ? (
           <p className="text-[var(--foreground)]">
             관리자 권한으로 양팀 엔트리를 관리할 수 있습니다.
           </p>
-        ) : !me.player ? (
-          <p className="text-[var(--muted)]">
-            Discord 계정이 로스터 선수와 연결되지 않았습니다. 운영진에게 연결을 요청하세요.
-          </p>
-        ) : permissions.needsSelection ? (
-          <p className="text-[var(--muted)]">
-            {me.player.nickname} ({actingRoleLabel(me.player.role)}) — 이 경기의 엔트리 수정
-            권한이 없습니다.
-          </p>
-        ) : (
+        ) : me?.player &&
+          (me.player.role === "CAPTAIN" || me.player.role === "VICE_CAPTAIN") &&
+          !permissions.needsSelection ? (
           <p className="text-[var(--foreground)]">
             {me.player.nickname} ({actingRoleLabel(me.player.role)})으로 엔트리를 작성합니다.
+          </p>
+        ) : (
+          <p className="text-[var(--muted)]">
+            각 팀의 팀장·부팀장만 엔트리 수정이 가능합니다.
+            {!me?.loggedIn ? (
+              <>
+                {" "}
+                <Link href="/login" className="text-[var(--accent)] hover:underline">
+                  로그인
+                </Link>
+              </>
+            ) : null}
           </p>
         )}
       </section>

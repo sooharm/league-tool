@@ -1,4 +1,5 @@
 import { getSelectedSeason } from "@/lib/data";
+import { isLeadershipRole } from "@/lib/entry";
 import { parsePlayerInput, type PlayerInput } from "@/lib/roster";
 import { prisma } from "@/lib/prisma";
 import type { PlayerRole } from "@prisma/client";
@@ -45,7 +46,7 @@ async function clearConflictingRoles(
       isActive: true,
       ...(excludePlayerId ? { id: { not: excludePlayerId } } : {}),
     },
-    data: { role: "MEMBER" },
+    data: { role: "MEMBER", discordUserId: null },
   });
 }
 
@@ -78,6 +79,7 @@ export async function createPlayer(teamId: string, input: PlayerInput) {
         tier: input.tier,
         role: input.role,
         isActive: true,
+        discordUserId: null,
       },
     });
 
@@ -124,6 +126,9 @@ export async function updatePlayer(playerId: string, input: PlayerInput) {
 
   await clearConflictingRoles(existing.teamId, input.role, playerId);
 
+  const demotedFromLeadership =
+    input.role === "MEMBER" && isLeadershipRole(existing.role);
+
   const player = await prisma.player.update({
     where: { id: playerId },
     data: {
@@ -131,6 +136,7 @@ export async function updatePlayer(playerId: string, input: PlayerInput) {
       race: input.race,
       tier: input.tier,
       role: input.role,
+      ...(demotedFromLeadership ? { discordUserId: null } : {}),
     },
   });
 

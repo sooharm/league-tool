@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getSelectedSeason } from "@/lib/data";
 import { getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
 import { isDiscordAdmin, isDiscordStaff } from "@/lib/discord-staff";
 import { isLeadershipRole } from "@/lib/entry";
@@ -40,15 +41,22 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     return null;
   }
 
-  const player = await prisma.player.findFirst({
-    where: { discordUserId, isActive: true },
-    select: {
-      id: true,
-      teamId: true,
-      nickname: true,
-      role: true,
-    },
-  });
+  const season = await getSelectedSeason();
+  const player = season
+    ? await prisma.player.findFirst({
+        where: {
+          discordUserId,
+          isActive: true,
+          team: { seasonId: season.id },
+        },
+        select: {
+          id: true,
+          teamId: true,
+          nickname: true,
+          role: true,
+        },
+      })
+    : null;
 
   const isAdmin = isDiscordAdmin(discordUserId);
   const isStaff = await isDiscordStaff(discordUserId);
