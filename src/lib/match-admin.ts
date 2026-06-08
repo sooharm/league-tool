@@ -1,5 +1,5 @@
 import type { MatchStatus, TierBracket } from "@prisma/client";
-import { STANDARD_SET_BRACKETS, TIER_BRACKET_OPTIONS } from "@/lib/tier-brackets";
+import { buildStandardSets, TIER_BRACKET_OPTIONS } from "@/lib/tier-brackets";
 
 export { TIER_BRACKET_OPTIONS };
 
@@ -35,11 +35,7 @@ export function createEmptySet(orderIndex: number): SetAdminInput {
 }
 
 export function defaultSets(): SetAdminInput[] {
-  return STANDARD_SET_BRACKETS.map((tierBracket, index) => ({
-    orderIndex: index + 1,
-    tierBracket,
-    mapName: null,
-  }));
+  return buildStandardSets();
 }
 
 export function validateMatchInput(input: MatchAdminInput): string | null {

@@ -23,14 +23,43 @@ export function getTierBracketLabel(bracket: string) {
   return LABEL_MAP[bracket] ?? LEGACY_LABELS[bracket] ?? bracket;
 }
 
+export const FIXED_SET_BRACKETS: TierBracket[] = [
+  "TIER_1_2",
+  "TIER_2_3",
+  "TIER_3_4",
+  "TIER_4_5",
+];
+
+export const DESIGNATED_TIER_BRACKETS: TierBracket[] = ["TIER_2", "TIER_3", "TIER_4"];
+
+export type DesignatedTiers = [TierBracket, TierBracket];
+
+export const DEFAULT_DESIGNATED_TIERS: DesignatedTiers = ["TIER_2", "TIER_4"];
+
 export const STANDARD_SET_BRACKETS: TierBracket[] = TIER_BRACKET_OPTIONS.map(
   (option) => option.value,
 );
 
-export function buildStandardSets() {
-  return STANDARD_SET_BRACKETS.map((tierBracket, index) => ({
+export function isDesignatedTierBracket(bracket: TierBracket): bracket is DesignatedTiers[number] {
+  return (DESIGNATED_TIER_BRACKETS as TierBracket[]).includes(bracket);
+}
+
+export function validateDesignatedTiers(tiers: TierBracket[]): tiers is DesignatedTiers {
+  if (tiers.length !== 2) return false;
+  if (new Set(tiers).size !== 2) return false;
+  return tiers.every(isDesignatedTierBracket);
+}
+
+/** 정규 6세트(고정 4 + 지정티어 2). 에이스결정전은 경기결과 입력 시 추가 */
+export function buildMatchSets(designatedTiers: DesignatedTiers = DEFAULT_DESIGNATED_TIERS) {
+  const brackets = [...FIXED_SET_BRACKETS, ...designatedTiers];
+  return brackets.map((tierBracket, index) => ({
     orderIndex: index + 1,
     tierBracket,
     mapName: null as string | null,
   }));
+}
+
+export function buildStandardSets(designatedTiers?: DesignatedTiers) {
+  return buildMatchSets(designatedTiers ?? DEFAULT_DESIGNATED_TIERS);
 }

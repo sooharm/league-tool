@@ -159,13 +159,19 @@ type SixManSetResult = {
   isForfeit?: boolean;
 };
 
-/** 6인 엔트리 판정 대상: 에이스결정전 제외, 앞에서 6세트 */
+/** 엔트리·6인 가산점 대상: 일정 1~6세트(에이스결정전 제외) */
 export function getSixManEntrySetIds(sets: SixManSet[]): string[] {
   return [...sets]
     .sort((a, b) => a.orderIndex - b.orderIndex)
     .filter((set) => set.tierBracket !== "ACE")
-    .slice(0, 6)
     .map((set) => set.id);
+}
+
+export function getEntrySubmissionSets<T extends SixManSet>(sets: T[]): T[] {
+  const entrySetIds = new Set(getSixManEntrySetIds(sets));
+  return [...sets]
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .filter((set) => entrySetIds.has(set.id));
 }
 
 export function teamHasSixManEntryFromSlots(

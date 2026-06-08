@@ -601,6 +601,10 @@ export function EntryForm({ matchId }: { matchId: string }) {
           {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
         </p>
         <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
+          <p>
+            일정에 등록된 1~6세트(티어·맵)만 엔트리 제출 대상입니다. 7경기 에이스결정전은 3:3일
+            때 진행되며 엔트리 대상이 아닙니다.
+          </p>
           <p>양팀 모두 엔트리를 확정하면 자동으로 공개됩니다.</p>
           <p>
             한쪽만 확정한 경우에도 상대팀 확정 전까지 엔트리를 수정할 수 있습니다. 전체 공개

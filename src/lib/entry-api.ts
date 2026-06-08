@@ -7,6 +7,7 @@ import {
   isLeadershipRole,
   isPublished,
   resolvePublishedAt,
+  getEntrySubmissionSets,
   getSixManEntrySetIds,
   teamHasSixManBonus,
   teamHasSixManEntryFromSlots,
@@ -132,6 +133,8 @@ export function buildEntryResponse({
 }) {
   const ctx = toEntryContext(entry, match);
   const published = isPublished(ctx);
+  const entrySets = getEntrySubmissionSets(match.sets);
+  const entrySetIds = new Set(entrySets.map((set) => set.id));
   const canViewHome =
     isAdmin || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.homeTeamId);
   const canViewAway =
@@ -139,13 +142,19 @@ export function buildEntryResponse({
 
   const homeSlots = canViewHome
     ? slots
-        .filter((slot) => slot.teamId === match.homeTeamId)
+        .filter(
+          (slot) =>
+            slot.teamId === match.homeTeamId && entrySetIds.has(slot.setId),
+        )
         .map(({ setId, playerId, player }) => ({ setId, playerId, player }))
     : null;
 
   const awaySlots = canViewAway
     ? slots
-        .filter((slot) => slot.teamId === match.awayTeamId)
+        .filter(
+          (slot) =>
+            slot.teamId === match.awayTeamId && entrySetIds.has(slot.setId),
+        )
         .map(({ setId, playerId, player }) => ({ setId, playerId, player }))
     : null;
 
@@ -167,7 +176,7 @@ export function buildEntryResponse({
       scheduledAt: match.scheduledAt,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
-      sets: match.sets,
+      sets: entrySets,
     },
     slots: {
       home: homeSlots,
@@ -233,6 +242,7 @@ export async function upsertEntrySlots(
   entryId: string,
   teamId: string,
   slots: { setId: string; playerId: string }[],
+  entrySetIds?: string[],
 ) {
   for (const slot of slots) {
     await prisma.entrySlot.upsert({
@@ -251,6 +261,16 @@ export async function upsertEntrySlots(
       },
       update: {
         playerId: slot.playerId,
+      },
+    });
+  }
+
+  if (entrySetIds?.length) {
+    await prisma.entrySlot.deleteMany({
+      where: {
+        entryId,
+        teamId,
+        setId: { notIn: entrySetIds },
       },
     });
   }

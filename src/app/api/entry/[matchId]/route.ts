@@ -6,7 +6,7 @@ import {
   toEntryContext,
   upsertEntrySlots,
 } from "@/lib/entry-api";
-import { canSaveOrConfirm, isPublished } from "@/lib/entry";
+import { canSaveOrConfirm, getSixManEntrySetIds, isPublished } from "@/lib/entry";
 import { prisma } from "@/lib/prisma";
 import {
   assertEntryEditPermission,
@@ -95,14 +95,20 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "저장 권한이 없습니다." }, { status: 403 });
   }
 
-  const matchSetIds = new Set(match.sets.map((set) => set.id));
-  if (slots.some((slot) => !matchSetIds.has(slot.setId))) {
-    return NextResponse.json({ error: "유효하지 않은 세트입니다." }, { status: 400 });
+  const entrySetIds = getSixManEntrySetIds(match.sets);
+  const entrySetIdSet = new Set(entrySetIds);
+  if (slots.some((slot) => !entrySetIdSet.has(slot.setId))) {
+    return NextResponse.json(
+      { error: "엔트리 제출 대상이 아닌 세트입니다." },
+      { status: 400 },
+    );
   }
 
+  const entrySlots = slots.filter((slot) => entrySetIdSet.has(slot.setId));
+
   try {
-    await assertTeamPlayers(teamId, slots);
-    await upsertEntrySlots(entry.id, teamId, slots);
+    await assertTeamPlayers(teamId, entrySlots);
+    await upsertEntrySlots(entry.id, teamId, entrySlots, entrySetIds);
   } catch (error) {
     if (error instanceof Error && error.message === "INVALID_PLAYERS") {
       return NextResponse.json({ error: "유효하지 않은 선수입니다." }, { status: 400 });

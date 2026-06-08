@@ -152,10 +152,15 @@ export function PlayerStandingsTable({
     );
   }
 
-  const columns: { key: SortKey; header: string; className?: string }[] = [
-    { key: "games", header: "총경기수", className: "min-w-[5rem]" },
-    { key: "wins", header: "총전적 (업셋횟수)", className: "min-w-[6.5rem]" },
-    { key: "winRate", header: "승률", className: "min-w-[4rem]" },
+  const columns: {
+    key: SortKey;
+    header: string;
+    mobileHeader?: string;
+    className?: string;
+  }[] = [
+    { key: "wins", header: "총전적 (업셋횟수)", mobileHeader: "전적", className: "min-w-[4.5rem]" },
+    { key: "games", header: "총경기수", className: "min-w-[3.5rem]" },
+    { key: "winRate", header: "승률", className: "min-w-[3.5rem]" },
   ];
 
   return (
@@ -237,11 +242,11 @@ export function PlayerStandingsTable({
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-[var(--card-border)] bg-[var(--card)]">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[22rem] text-sm sm:min-w-[640px]">
           <thead>
             <tr className="border-b border-[var(--card-border)] bg-black/20 text-left text-[var(--muted)]">
-              <th className="w-14 whitespace-nowrap px-4 py-3 font-medium">순위</th>
-              <th className="min-w-[200px] whitespace-nowrap px-4 py-3 font-medium">
+              <th className="w-10 whitespace-nowrap px-2 py-3 font-medium sm:w-14 sm:px-4">순위</th>
+              <th className="min-w-[6.5rem] whitespace-nowrap px-2 py-3 font-medium sm:min-w-[200px] sm:px-4">
                 <button
                   type="button"
                   onClick={() => toggleSort("nickname")}
@@ -261,7 +266,14 @@ export function PlayerStandingsTable({
                     onClick={() => toggleSort(column.key)}
                     className="inline-flex items-center whitespace-nowrap transition hover:text-[var(--foreground)]"
                   >
-                    {column.header}
+                    {column.mobileHeader ? (
+                      <>
+                        <span className="sm:hidden">{column.mobileHeader}</span>
+                        <span className="hidden sm:inline">{column.header}</span>
+                      </>
+                    ) : (
+                      column.header
+                    )}
                     <SortIndicator active={sortKey === column.key} dir={sortDir} />
                   </button>
                 </th>
@@ -300,18 +312,20 @@ export function PlayerStandingsTable({
                         isExpanded ? "bg-white/5" : ""
                       }`}
                     >
-                      <td className="px-4 py-3 text-center text-[var(--muted)]">{index + 1}</td>
-                      <td className="px-4 py-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
+                      <td className="px-2 py-3 text-center text-[var(--muted)] sm:px-4">
+                        {index + 1}
+                      </td>
+                      <td className="px-2 py-3 sm:px-4">
+                        <div className="min-w-0 max-w-[8.5rem] sm:max-w-none">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                             <span
-                              className={`font-medium ${
+                              className={`truncate font-medium ${
                                 isExpanded ? "text-[var(--accent)]" : "text-[var(--foreground)]"
                               }`}
                             >
                               {row.nickname}
                             </span>
-                            <span className="text-xs text-[var(--muted)]">
+                            <span className="shrink-0 text-xs text-[var(--muted)]">
                               {RACE_LABELS[row.race] ?? row.race}
                             </span>
                           </div>
@@ -328,11 +342,16 @@ export function PlayerStandingsTable({
                           </button>
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center">{row.games}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center">
-                        {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
+                      <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">
+                        <span className="sm:hidden">
+                          {row.wins}승 {row.losses}패
+                        </span>
+                        <span className="hidden sm:inline">
+                          {formatWinLossUpsetRecord(row.wins, row.losses, row.upsets)}
+                        </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-center">
+                      <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">{row.games}</td>
+                      <td className="whitespace-nowrap px-2 py-3 text-center sm:px-4">
                         <span
                           className={
                             row.winRate >= 50 ? "font-semibold text-[var(--accent)]" : "text-sky-300"
