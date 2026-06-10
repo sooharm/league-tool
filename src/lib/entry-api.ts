@@ -3,12 +3,13 @@ import {
   canEditEntry,
   canSaveOrConfirm,
   canViewTeamSlots,
+  getEffectivePublishedAt,
+  getEntryAutoPublishAt,
   getEntryStatus,
-  isLeadershipRole,
-  isPublished,
-  resolvePublishedAt,
   getEntrySubmissionSets,
   getSixManEntrySetIds,
+  isLeadershipRole,
+  isPublished,
   teamHasSixManBonus,
   teamHasSixManEntryFromSlots,
   type EntryWithTeams,
@@ -72,7 +73,7 @@ export function toEntryContext(
     awayConfirmedAt: Date | null;
     publishedAt: Date | null;
   },
-  match: { homeTeamId: string; awayTeamId: string },
+  match: { homeTeamId: string; awayTeamId: string; scheduledAt: Date | null },
 ): EntryWithTeams {
   return {
     homeConfirmedAt: entry.homeConfirmedAt,
@@ -80,7 +81,40 @@ export function toEntryContext(
     publishedAt: entry.publishedAt,
     homeTeamId: match.homeTeamId,
     awayTeamId: match.awayTeamId,
+    scheduledAt: match.scheduledAt,
   };
+}
+
+export async function ensureEntryAutoPublishedSideEffects(match: {
+  id: string;
+  scheduledAt: Date | null;
+  homeTeamId: string;
+  awayTeamId: string;
+  entry: {
+    id: string;
+    homeConfirmedAt: Date | null;
+    awayConfirmedAt: Date | null;
+    publishedAt: Date | null;
+  } | null;
+}) {
+  if (!match.entry) {
+    return;
+  }
+
+  const ctx = toEntryContext(match.entry, match);
+  if (!isPublished(ctx)) {
+    return;
+  }
+
+  const publishAt = getEntryAutoPublishAt(match.scheduledAt);
+  if (publishAt && !match.entry.publishedAt) {
+    await prisma.matchEntry.update({
+      where: { id: match.entry.id },
+      data: { publishedAt: publishAt },
+    });
+  }
+
+  await syncMatchSixManEntry(match.id);
 }
 
 export function buildEntryResponse({
@@ -135,10 +169,8 @@ export function buildEntryResponse({
   const published = isPublished(ctx);
   const entrySets = getEntrySubmissionSets(match.sets);
   const entrySetIds = new Set(entrySets.map((set) => set.id));
-  const canViewHome =
-    isAdmin || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.homeTeamId);
-  const canViewAway =
-    isAdmin || canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.awayTeamId);
+  const canViewHome = canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.homeTeamId);
+  const canViewAway = canViewTeamSlots(ctx, viewerTeamId, viewerRole, match.awayTeamId);
 
   const homeSlots = canViewHome
     ? slots
@@ -164,7 +196,8 @@ export function buildEntryResponse({
       matchId: entry.matchId,
       homeConfirmedAt: entry.homeConfirmedAt,
       awayConfirmedAt: entry.awayConfirmedAt,
-      publishedAt: entry.publishedAt,
+      publishedAt: getEffectivePublishedAt(ctx),
+      autoPublishAt: getEntryAutoPublishAt(match.scheduledAt),
       homeConfirmedBy: entry.homeConfirmedBy,
       awayConfirmedBy: entry.awayConfirmedBy,
       status: getEntryStatus(ctx),
@@ -327,7 +360,7 @@ export async function confirmEntryTeam({
 }: {
   entryId: string;
   teamId: string;
-  match: { id: string; homeTeamId: string; awayTeamId: string };
+  match: { id: string; homeTeamId: string; awayTeamId: string; scheduledAt: Date | null };
   confirmedBy: string;
 }) {
   const entry = await prisma.matchEntry.findUniqueOrThrow({ where: { id: entryId } });
@@ -341,10 +374,6 @@ export async function confirmEntryTeam({
 
   const homeConfirmedAt = isHome ? now : entry.homeConfirmedAt;
   const awayConfirmedAt = isAway ? now : entry.awayConfirmedAt;
-  const publishedAt = resolvePublishedAt(
-    { homeConfirmedAt, awayConfirmedAt, publishedAt: entry.publishedAt },
-    now,
-  );
 
   const updatedEntry = await prisma.matchEntry.update({
     where: { id: entryId },
@@ -353,13 +382,16 @@ export async function confirmEntryTeam({
       awayConfirmedAt: isAway ? now : undefined,
       homeConfirmedBy: isHome ? confirmedBy : undefined,
       awayConfirmedBy: isAway ? confirmedBy : undefined,
-      publishedAt,
     },
   });
 
-  if (isPublished(toEntryContext(updatedEntry, match))) {
-    await syncMatchSixManEntry(match.id);
-  }
+  await ensureEntryAutoPublishedSideEffects({
+    id: match.id,
+    scheduledAt: match.scheduledAt,
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    entry: updatedEntry,
+  });
 
   return updatedEntry;
 }
@@ -373,7 +405,16 @@ export async function syncMatchSixManEntry(matchId: string) {
     },
   });
 
-  if (!match?.entry || !isPublished(toEntryContext(match.entry, match))) {
+  if (
+    !match?.entry ||
+    !isPublished(
+      toEntryContext(match.entry, {
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        scheduledAt: match.scheduledAt,
+      }),
+    )
+  ) {
     return;
   }
 
@@ -403,7 +444,16 @@ export async function syncMatchSixManFromResults(matchId: string) {
   }
 
   const entrySlots =
-    match.entry && isPublished(toEntryContext(match.entry, match)) ? match.entry.slots : undefined;
+    match.entry &&
+    isPublished(
+      toEntryContext(match.entry, {
+        homeTeamId: match.homeTeamId,
+        awayTeamId: match.awayTeamId,
+        scheduledAt: match.scheduledAt,
+      }),
+    )
+      ? match.entry.slots
+      : undefined;
 
   await prisma.match.update({
     where: { id: matchId },

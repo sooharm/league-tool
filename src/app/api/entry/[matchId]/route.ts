@@ -1,6 +1,7 @@
 import {
   assertTeamPlayers,
   buildEntryResponse,
+  ensureEntryAutoPublishedSideEffects,
   getOrCreateMatchEntry,
   loadEntryMatch,
   toEntryContext,
@@ -29,17 +30,27 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const entry = match.entry ?? (await getOrCreateMatchEntry(matchId));
+  await ensureEntryAutoPublishedSideEffects({
+    id: match.id,
+    scheduledAt: match.scheduledAt,
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    entry: match.entry ?? entry,
+  });
+
+  const refreshed = (await loadEntryMatch(matchId)) ?? match;
+  const activeEntry = refreshed.entry ?? entry;
   const slots =
-    match.entry?.slots ??
+    refreshed.entry?.slots ??
     (await prisma.entrySlot.findMany({
-      where: { entryId: entry.id },
+      where: { entryId: activeEntry.id },
       include: { player: true },
     }));
 
   return NextResponse.json(
     buildEntryResponse({
-      entry,
-      match,
+      entry: activeEntry,
+      match: refreshed,
       slots,
       viewerTeamId,
       viewerRole,

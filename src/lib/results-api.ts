@@ -1,5 +1,6 @@
 import { syncMatchSixManFromResults } from "@/lib/entry-api";
-import { getSetEntryPlayers, isPublished } from "@/lib/entry";
+import { entryPublishContext, getSetEntryPlayers, isPublished } from "@/lib/entry";
+import { ensureEntryAutoPublishedSideEffects } from "@/lib/entry-api";
 import {
   FORFEIT_PLAYER_VALUE,
   isForfeitPlayerValue,
@@ -51,7 +52,7 @@ export async function loadMatchForResults(matchId: string) {
 
 export function buildResultsResponse(match: NonNullable<Awaited<ReturnType<typeof loadMatchForResults>>>) {
   const entrySlots =
-    match.entry && isPublished(match.entry)
+    match.entry && isPublished(entryPublishContext(match.entry, match))
       ? match.entry.slots.map((slot) => ({
           teamId: slot.teamId,
           setId: slot.setId,
@@ -134,7 +135,7 @@ export function buildResultsResponse(match: NonNullable<Awaited<ReturnType<typeo
       },
       sets,
     },
-    entryPublished: !!match.entry && isPublished(match.entry),
+    entryPublished: !!match.entry && isPublished(entryPublishContext(match.entry, match)),
   };
 }
 

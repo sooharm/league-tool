@@ -41,6 +41,7 @@ type EntryResponse = {
     homeConfirmedAt: string | null;
     awayConfirmedAt: string | null;
     publishedAt: string | null;
+    autoPublishAt: string | null;
     homeConfirmedBy: string | null;
     awayConfirmedBy: string | null;
     status: string;
@@ -90,6 +91,61 @@ function formatDateTime(date: string | null) {
   });
 }
 
+function formatPublishCountdown(remainingMs: number) {
+  if (remainingMs <= 0) {
+    return "00:00:00";
+  }
+
+  const totalSeconds = Math.ceil(remainingMs / 1000);
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const clock = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+
+  return days > 0 ? `${days}일 ${clock}` : clock;
+}
+
+function useEntryPublishCountdown(
+  autoPublishAt: string | null,
+  isPublished: boolean,
+  onElapsed: () => void,
+) {
+  const [countdown, setCountdown] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!autoPublishAt || isPublished) {
+      setCountdown(null);
+      return;
+    }
+
+    const publishAtMs = new Date(autoPublishAt).getTime();
+    if (Number.isNaN(publishAtMs)) {
+      setCountdown(null);
+      return;
+    }
+
+    let elapsedHandled = false;
+
+    function tick() {
+      const remainingMs = publishAtMs - Date.now();
+      setCountdown(formatPublishCountdown(remainingMs));
+
+      if (remainingMs <= 0 && !elapsedHandled) {
+        elapsedHandled = true;
+        onElapsed();
+      }
+    }
+
+    tick();
+    const timerId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timerId);
+  }, [autoPublishAt, isPublished, onElapsed]);
+
+  return countdown;
+}
+
 function playerLabel(player: PlayerOption) {
   return `${player.nickname} (${player.tier}티어, ${player.race})`;
 }
@@ -128,6 +184,23 @@ export function EntryForm({ matchId }: { matchId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adminResetTeamId, setAdminResetTeamId] = useState<string | null>(null);
+
+  const refreshEntrySilently = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/entry/${matchId}`);
+      const json = await response.json();
+      if (!response.ok) {
+        return;
+      }
+
+      const entryData = json as EntryResponse;
+      setData(entryData);
+      setHomeSelections(slotsToMap(entryData.slots.home));
+      setAwaySelections(slotsToMap(entryData.slots.away));
+    } catch {
+      // ignore background refresh errors
+    }
+  }, [matchId]);
 
   const fetchEntry = useCallback(async () => {
     setLoading(true);
@@ -228,6 +301,12 @@ export function EntryForm({ matchId }: { matchId: string }) {
     if (!data?.permissions.isAdmin) return;
     setAdminResetTeamId((current) => current ?? data.match.homeTeam.id);
   }, [data?.match.homeTeam.id, data?.permissions.isAdmin]);
+
+  const publishCountdown = useEntryPublishCountdown(
+    data?.entry.autoPublishAt ?? null,
+    data?.entry.status === "published",
+    refreshEntrySilently,
+  );
 
   async function persistTeamSlots(
     teamId: string,
@@ -413,7 +492,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
     if (hidden) {
       return (
         <span className="text-sm text-[var(--muted)]">
-          🔒 상대팀 엔트리 (확정 후 공개)
+          🔒 상대팀 엔트리 (19:00 공개)
         </span>
       );
     }
@@ -601,18 +680,31 @@ export function EntryForm({ matchId }: { matchId: string }) {
           {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
         </p>
         <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
-          <p>양팀 모두 엔트리를 확정하면 자동으로 공개됩니다.</p>
-          <p>
-            한쪽만 확정한 경우에도 상대팀 확정 전까지 엔트리를 수정할 수 있습니다. 전체 공개
-            후에는 누구도 엔트리를 수정할 수 없습니다.
-          </p>
+          <p>경기 당일 19:00(한국시간)에 엔트리가 자동 공개됩니다.</p>
+          <p>공개 전까지는 각 팀이 자신의 엔트리만 수정·확정할 수 있습니다.</p>
+          <p>공개 후에는 누구도 엔트리를 수정할 수 없습니다.</p>
         </div>
       </article>
+
+      {publishCountdown ? (
+        <section className="rounded-xl border border-[var(--accent)]/35 bg-[var(--accent)]/10 p-5 text-center">
+          <p className="text-sm text-[var(--muted)]">엔트리 공개까지</p>
+          <p className="mt-2 font-mono text-4xl font-bold tracking-wider text-[var(--accent)]">
+            {publishCountdown}
+          </p>
+          {entry.autoPublishAt ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              {formatDateTime(entry.autoPublishAt)} (한국시간)
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-sm">
         {me?.isAdmin ? (
           <p className="text-[var(--foreground)]">
-            관리자 권한으로 양팀 엔트리를 관리할 수 있습니다.
+            관리자도 공개 전에는 엔트리 내용을 볼 수 없습니다. 19:00 공개 후 조회할 수
+            있습니다.
           </p>
         ) : me?.player &&
           (me.player.role === "CAPTAIN" || me.player.role === "VICE_CAPTAIN") &&

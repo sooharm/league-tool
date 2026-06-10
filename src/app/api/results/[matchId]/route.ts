@@ -1,3 +1,4 @@
+import { ensureEntryAutoPublishedSideEffects } from "@/lib/entry-api";
 import {
   buildResultsResponse,
   loadMatchForResults,
@@ -24,7 +25,10 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: "세트가 등록되지 않은 경기입니다." }, { status: 400 });
   }
 
-  return NextResponse.json(buildResultsResponse(match));
+  await ensureEntryAutoPublishedSideEffects(match);
+  const refreshed = (await loadMatchForResults(matchId)) ?? match;
+
+  return NextResponse.json(buildResultsResponse(refreshed));
 }
 
 export async function PUT(request: Request, context: RouteContext) {

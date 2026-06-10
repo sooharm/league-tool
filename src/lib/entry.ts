@@ -14,10 +14,39 @@ export type EntryLike = {
 export type EntryWithTeams = EntryLike & {
   homeTeamId: string;
   awayTeamId: string;
+  scheduledAt: Date | null;
 };
 
-export function getEntryStatus(entry: EntryLike): EntryStatus {
-  if (entry.homeConfirmedAt && entry.awayConfirmedAt) {
+export const ENTRY_AUTO_PUBLISH_HOUR_KST = 19;
+const ENTRY_PUBLISH_TIMEZONE = "Asia/Seoul";
+
+/** 경기 일정 날짜 기준 한국시간 19:00 자동 공개 시각 */
+export function getEntryAutoPublishAt(scheduledAt: Date | null): Date | null {
+  if (!scheduledAt) {
+    return null;
+  }
+
+  const dateKey = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ENTRY_PUBLISH_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(scheduledAt);
+
+  return new Date(`${dateKey}T${String(ENTRY_AUTO_PUBLISH_HOUR_KST).padStart(2, "0")}:00:00+09:00`);
+}
+
+export function isPublished(entry: EntryWithTeams, now = new Date()): boolean {
+  const publishAt = getEntryAutoPublishAt(entry.scheduledAt);
+  if (!publishAt) {
+    return false;
+  }
+
+  return now >= publishAt;
+}
+
+export function getEntryStatus(entry: EntryWithTeams, now = new Date()): EntryStatus {
+  if (isPublished(entry, now)) {
     return "published";
   }
   if (entry.homeConfirmedAt || entry.awayConfirmedAt) {
@@ -26,8 +55,12 @@ export function getEntryStatus(entry: EntryLike): EntryStatus {
   return "draft";
 }
 
-export function isPublished(entry: EntryLike): boolean {
-  return getEntryStatus(entry) === "published";
+export function getEffectivePublishedAt(entry: EntryWithTeams): Date | null {
+  if (!isPublished(entry)) {
+    return null;
+  }
+
+  return entry.publishedAt ?? getEntryAutoPublishAt(entry.scheduledAt);
 }
 
 export function canViewEntry(
@@ -36,10 +69,6 @@ export function canViewEntry(
   viewerRole: ViewerRole,
 ): boolean {
   if (isPublished(entry)) {
-    return true;
-  }
-
-  if (viewerRole === "ADMIN") {
     return true;
   }
 
@@ -55,7 +84,7 @@ export function canEditEntry(entry: EntryWithTeams, teamId: string): boolean {
     return false;
   }
 
-  // 양팀 모두 확정(전체 공개) 전까지 해당 팀 엔트리 수정 가능 (한쪽만 확정해도 수정 가능)
+  // 자동 공개 전까지 해당 팀 엔트리 수정 가능
   return teamId === entry.homeTeamId || teamId === entry.awayTeamId;
 }
 
@@ -65,7 +94,7 @@ export function isLeadershipRole(
   return role === "CAPTAIN" || role === "VICE_CAPTAIN";
 }
 
-export function getEntryBadgeLabel(entry: EntryLike): string {
+export function getEntryBadgeLabel(entry: EntryWithTeams): string {
   if (isPublished(entry)) {
     return "공개됨";
   }
@@ -111,11 +140,18 @@ export function canSaveOrConfirm(
   return canEditEntry(entry, teamId);
 }
 
-export function resolvePublishedAt(entry: EntryLike, now = new Date()): Date | null {
-  if (entry.homeConfirmedAt && entry.awayConfirmedAt) {
-    return entry.publishedAt ?? now;
-  }
-  return null;
+export function entryPublishContext(
+  entry: EntryLike,
+  match: { homeTeamId: string; awayTeamId: string; scheduledAt: Date | null },
+): EntryWithTeams {
+  return {
+    homeConfirmedAt: entry.homeConfirmedAt,
+    awayConfirmedAt: entry.awayConfirmedAt,
+    publishedAt: entry.publishedAt,
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    scheduledAt: match.scheduledAt,
+  };
 }
 
 export function actingRoleLabel(role: PlayerRole) {
@@ -259,6 +295,9 @@ export function teamHasSixManEntryFromResults(
 }
 
 export function resolvePublishedEntrySlotsForMatch(match: {
+  scheduledAt: Date | null;
+  homeTeamId: string;
+  awayTeamId: string;
   entry?: {
     homeConfirmedAt: Date | null;
     awayConfirmedAt: Date | null;
@@ -266,7 +305,11 @@ export function resolvePublishedEntrySlotsForMatch(match: {
     slots: { teamId: string; setId: string; playerId: string }[];
   } | null;
 }) {
-  if (!match.entry?.slots.length || !isPublished(match.entry)) {
+  if (!match.entry?.slots.length) {
+    return undefined;
+  }
+
+  if (!isPublished(entryPublishContext(match.entry, match))) {
     return undefined;
   }
 

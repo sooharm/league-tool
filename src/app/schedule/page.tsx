@@ -3,7 +3,7 @@ import { PageShell } from "@/components/PageShell";
 import Link from "next/link";
 import { getActiveSeason, getScheduleMatches } from "@/lib/data";
 import { canManageSchedule, getAuthContext } from "@/lib/permissions";
-import { getSetEntryPlayers, isPublished } from "@/lib/entry";
+import { entryPublishContext, getSetEntryPlayers, isPublished } from "@/lib/entry";
 import { formatScheduleDate } from "@/lib/match-display";
 import { getTierBracketLabel } from "@/lib/standings";
 
@@ -55,7 +55,7 @@ export default async function SchedulePage() {
                 <div className="space-y-4">
                   {weekMatches.map((match) => {
                     const publishedEntry =
-                      match.entry && isPublished(match.entry)
+                      match.entry && isPublished(entryPublishContext(match.entry, match))
                         ? match.entry.slots.map((slot) => ({
                             teamId: slot.teamId,
                             setId: slot.setId,
