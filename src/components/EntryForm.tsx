@@ -681,7 +681,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
         </p>
         <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
           <p>경기 당일 19:00(한국시간)에 엔트리가 자동 공개됩니다.</p>
-          <p>공개 전까지는 각 팀이 자신의 엔트리만 수정·확정할 수 있습니다.</p>
+          <p>각 팀의 팀장/부팀장만 엔트리를 수정·확정할 수 있습니다.</p>
           <p>공개 후에는 누구도 엔트리를 수정할 수 없습니다.</p>
         </div>
       </article>
@@ -701,12 +701,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
       ) : null}
 
       <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 text-sm">
-        {me?.isAdmin ? (
-          <p className="text-[var(--foreground)]">
-            관리자도 공개 전에는 엔트리 내용을 볼 수 없습니다. 19:00 공개 후 조회할 수
-            있습니다.
-          </p>
-        ) : me?.player &&
+        {me?.player &&
           (me.player.role === "CAPTAIN" || me.player.role === "VICE_CAPTAIN") &&
           !permissions.needsSelection ? (
           <p className="text-[var(--foreground)]">
