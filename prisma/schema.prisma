@@ -80,6 +80,7 @@ model Player {
   role          PlayerRole @default(MEMBER)
   isActive      Boolean    @default(true)
   discordUserId String?    @unique
+  elo           Int        @default(1000)
 
   team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
   wonSets    SetResult[] @relation("WinnerPlayer")

@@ -325,6 +325,9 @@ export function PlayerStandingsTable({
                             >
                               {row.nickname}
                             </span>
+                            <span className="text-xs text-[var(--muted)] shrink-0">
+                              [ELO: {row.elo}]
+                            </span>
                             <span className="shrink-0 text-xs text-[var(--muted)]">
                               {RACE_LABELS[row.race] ?? row.race}
                             </span>

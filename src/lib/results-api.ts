@@ -8,6 +8,7 @@ import {
   type SetResultInput,
 } from "@/lib/results";
 import { prisma } from "@/lib/prisma";
+import { recalculateAllElos } from "@/lib/elo";
 import type { TierBracket } from "@prisma/client";
 
 export async function loadMatchForResults(matchId: string) {
@@ -274,6 +275,8 @@ export async function validateAndSaveResults(
 
   await syncMatchSixManFromResults(matchId);
 
+  await recalculateAllElos();
+
   const synced = await loadMatchForResults(matchId);
   if (!synced) {
     throw new Error("MATCH_NOT_FOUND");
@@ -341,6 +344,8 @@ export async function removeAceSet(matchId: string, setId: string) {
   });
 
   await syncMatchSixManFromResults(matchId);
+
+  await recalculateAllElos();
 
   const synced = await loadMatchForResults(matchId);
   if (!synced) {

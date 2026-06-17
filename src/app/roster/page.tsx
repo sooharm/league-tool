@@ -65,6 +65,9 @@ export default async function RosterPage() {
                             {player.nickname}({player.race}
                             {roleLabel(player.role) ? `, ${roleLabel(player.role)}` : ""})
                           </span>
+                          <span className="ml-1 text-xs text-[var(--muted)]">
+                            [ELO: {player.elo}]
+                          </span>
                         </li>
                       ))}
                     </ul>
