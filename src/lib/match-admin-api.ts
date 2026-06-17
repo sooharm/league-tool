@@ -5,6 +5,7 @@ import {
   validateMatchInput,
 } from "@/lib/match-admin";
 import { prisma } from "@/lib/prisma";
+import { recalculateAllElos } from "@/lib/elo";
 import type { MatchStatus } from "@prisma/client";
 
 const matchDetailInclude = {
@@ -154,6 +155,8 @@ export async function updateMatch(matchId: string, input: MatchAdminInput) {
 
   await syncSets(matchId, input.sets);
 
+  await recalculateAllElos();
+
   return getMatchAdminDetail(matchId);
 }
 
@@ -162,6 +165,8 @@ export async function deleteMatch(matchId: string) {
   if (!existing) throw new Error("MATCH_NOT_FOUND");
 
   await prisma.match.delete({ where: { id: matchId } });
+
+  await recalculateAllElos();
 }
 
 export function buildMatchAdminPayload(
