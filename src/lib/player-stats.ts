@@ -4,7 +4,6 @@ import type { Race } from "@prisma/client";
 
 export type PlayerDetailStanding = PlayerStanding & {
   upsets: number;
-  elo: number;
 };
 
 export type PlayerSetHistoryEntry = {
@@ -124,7 +123,6 @@ export function calculatePlayerDetailStandings(
     nickname: string;
     race: Race;
     tier: number;
-    elo: number;
     team: { id: string; name: string; color: string };
   }[],
   matches: MatchWithResults[],
@@ -139,7 +137,6 @@ export function calculatePlayerDetailStandings(
       teamColor: string;
       race: string;
       tier: number;
-      elo: number;
       wins: number;
       losses: number;
       upsets: number;
@@ -156,7 +153,6 @@ export function calculatePlayerDetailStandings(
       teamColor: player.team.color,
       race: player.race,
       tier: player.tier,
-      elo: player.elo,
       wins: 0,
       losses: 0,
       upsets: 0,
