@@ -64,7 +64,15 @@ const predictMatchInclude = {
   },
   sets: {
     orderBy: { orderIndex: "asc" as const },
-    include: { result: true },
+    include: {
+      result: {
+        include: {
+          winnerPlayer: {
+            select: { id: true, nickname: true, tier: true, race: true },
+          },
+        },
+      },
+    },
   },
 };
 
@@ -205,6 +213,80 @@ export function getKoreaDateKey(date: Date): string {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
+}
+
+export function getKoreaDayStart(date: Date): Date {
+  const dateKey = getKoreaDateKey(date);
+  return new Date(`${dateKey}T00:00:00+09:00`);
+}
+
+export type PredictBoardMode = "results" | "upcoming";
+
+export type PredictMatchWithInclude = NonNullable<
+  Awaited<ReturnType<typeof getLastCompletedMatch>>
+>;
+
+export async function getLastCompletedMatch(seasonId: string) {
+  return prisma.match.findFirst({
+    where: {
+      seasonId,
+      status: "COMPLETED",
+      scheduledAt: { not: null },
+      sets: { some: {} },
+    },
+    include: predictMatchInclude,
+    orderBy: { scheduledAt: "desc" },
+  });
+}
+
+export async function getNextPredictMatch(seasonId: string) {
+  const now = new Date();
+
+  const candidates = await prisma.match.findMany({
+    where: {
+      seasonId,
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      scheduledAt: { not: null },
+      sets: { some: {} },
+    },
+    include: predictMatchInclude,
+    orderBy: { scheduledAt: "asc" },
+  });
+
+  for (const match of candidates) {
+    if (match.status === "IN_PROGRESS") {
+      return match;
+    }
+
+    if (match.scheduledAt && match.scheduledAt > now) {
+      return match;
+    }
+  }
+
+  return null;
+}
+
+export async function resolvePredictDisplayMatch(seasonId: string, now = new Date()) {
+  const [lastCompleted, nextMatch] = await Promise.all([
+    getLastCompletedMatch(seasonId),
+    getNextPredictMatch(seasonId),
+  ]);
+
+  if (lastCompleted && nextMatch?.scheduledAt) {
+    if (now < getKoreaDayStart(nextMatch.scheduledAt)) {
+      return { match: lastCompleted, mode: "results" as const };
+    }
+  }
+
+  if (nextMatch) {
+    return { match: nextMatch, mode: "upcoming" as const };
+  }
+
+  if (lastCompleted) {
+    return { match: lastCompleted, mode: "results" as const };
+  }
+
+  return null;
 }
 
 export async function getEntryDayMatches(seasonId: string) {

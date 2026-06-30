@@ -24,6 +24,7 @@ type SetCard = {
   tierBracket: string;
   homePlayer: PlayerInfo | null;
   awayPlayer: PlayerInfo | null;
+  winnerPlayer: PlayerInfo | null;
   odds: {
     home: number;
     away: number;
@@ -59,6 +60,7 @@ type PredictPayload = {
   loggedIn: boolean;
   previewMode?: boolean;
   usingPreviewFallback?: boolean;
+  boardMode?: "results" | "upcoming";
   points: number;
   entryDayLabel: string | null;
   matches: MatchCard[];
@@ -166,6 +168,7 @@ export function PredictBoard() {
         loggedIn: payload.loggedIn ?? true,
         previewMode: payload.previewMode,
         usingPreviewFallback: payload.usingPreviewFallback,
+        boardMode: payload.boardMode,
         points: payload.points,
         entryDayLabel: payload.entryDayLabel,
         matches: payload.matches,
@@ -227,11 +230,14 @@ export function PredictBoard() {
 
       {data.matches.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
-          오늘 엔트리 대상 경기가 없습니다. 일정이 등록되면 이곳에 표시됩니다.
+          표시할 경기가 없습니다. 일정이 등록되면 이곳에 표시됩니다.
         </p>
       ) : (
         <div className="space-y-4">
-          {data.matches.map((match) => (
+          {data.matches.map((match) => {
+            const isResultsBoard = data.boardMode === "results";
+
+            return (
             <article
               key={match.matchId}
               className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4"
@@ -247,7 +253,9 @@ export function PredictBoard() {
                     <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
                   </p>
                 </div>
-                {!match.predictionOpen ? (
+                {isResultsBoard ? (
+                  <p className="text-sm text-[var(--muted)]">경기 종료 · 배팅 결과</p>
+                ) : !match.predictionOpen ? (
                   <p className="text-sm text-[var(--muted)]">
                     {match.status === "COMPLETED"
                       ? "경기 종료"
@@ -273,6 +281,7 @@ export function PredictBoard() {
                     set.myBet?.status === "LOST" ||
                     set.myBet?.status === "REFUNDED";
                   const canBet =
+                    !isResultsBoard &&
                     data.loggedIn &&
                     set.predictionOpen &&
                     set.playersReady &&
@@ -286,12 +295,64 @@ export function PredictBoard() {
                     >
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <p className="text-sm font-semibold">{set.orderIndex}세트</p>
-                        {set.playersPublished ? (
+                        {set.playersPublished && !isResultsBoard ? (
                           <p className="text-xs text-[var(--muted)]">풀 {set.pools.total}P</p>
                         ) : null}
                       </div>
 
-                      {!set.playersPublished ? (
+                      {isResultsBoard ? (
+                        <>
+                          {!set.playersReady ? (
+                            <p className="mt-2 text-sm text-[var(--muted)]">엔트리 정보 없음</p>
+                          ) : (
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              {set.homePlayer ? (
+                                <div
+                                  className={`rounded-lg border bg-[var(--card)] p-3 ${
+                                    set.winnerPlayer?.id === set.homePlayer.id
+                                      ? "border-[var(--accent)]"
+                                      : "border-[var(--card-border)]"
+                                  }`}
+                                >
+                                  <p
+                                    className="text-sm font-medium"
+                                    style={{ color: match.homeTeam.color }}
+                                  >
+                                    {playerLabel(set.homePlayer)}
+                                  </p>
+                                  {set.winnerPlayer?.id === set.homePlayer.id ? (
+                                    <p className="mt-1 text-sm font-semibold text-[var(--accent)]">승</p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              {set.awayPlayer ? (
+                                <div
+                                  className={`rounded-lg border bg-[var(--card)] p-3 ${
+                                    set.winnerPlayer?.id === set.awayPlayer.id
+                                      ? "border-[var(--accent)]"
+                                      : "border-[var(--card-border)]"
+                                  }`}
+                                >
+                                  <p
+                                    className="text-sm font-medium"
+                                    style={{ color: match.awayTeam.color }}
+                                  >
+                                    {playerLabel(set.awayPlayer)}
+                                  </p>
+                                  {set.winnerPlayer?.id === set.awayPlayer.id ? (
+                                    <p className="mt-1 text-sm font-semibold text-[var(--accent)]">승</p>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
+                          {set.winnerPlayer ? (
+                            <p className="mt-2 text-sm text-[var(--muted)]">
+                              승자: {set.winnerPlayer.nickname}
+                            </p>
+                          ) : null}
+                        </>
+                      ) : !set.playersPublished ? (
                         <p className="mt-2 text-sm text-[var(--muted)]">
                           19:00 이후 선수 및 배당이 공개됩니다.
                         </p>
@@ -406,7 +467,8 @@ export function PredictBoard() {
                 })}
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

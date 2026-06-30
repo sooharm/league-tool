@@ -1,8 +1,10 @@
 import { isDevPredictPreviewEnabled } from "@/lib/dev-predict";
 import {
   getActiveSeason,
-  getEntryDayMatches,
   getPredictPreviewMatches,
+  resolvePredictDisplayMatch,
+  type PredictBoardMode,
+  type PredictMatchWithInclude,
 } from "@/lib/data";
 import {
   getEntrySubmissionSets,
@@ -21,7 +23,7 @@ import { prisma } from "@/lib/prisma";
 
 const PREVIEW_SAMPLE_POOL = { home: 40, away: 25, total: 65 };
 
-type PredictMatch = Awaited<ReturnType<typeof getEntryDayMatches>>[number];
+type PredictMatch = PredictMatchWithInclude;
 
 type PlayerInfo = {
   id: string;
@@ -29,6 +31,20 @@ type PlayerInfo = {
   tier: number;
   race: string;
 };
+
+function toPlayerInfo(player: {
+  id: string;
+  nickname: string;
+  tier: number;
+  race: string;
+}): PlayerInfo {
+  return {
+    id: player.id,
+    nickname: player.nickname,
+    tier: player.tier,
+    race: player.race,
+  };
+}
 
 function toEntrySlots(match: PredictMatch): EntrySlotPlayer[] {
   return (
@@ -56,8 +72,8 @@ function previewPlayersForSet(
   const away = awayRoster[setIndex % awayRoster.length];
 
   return {
-    home: { id: home.id, nickname: home.nickname, tier: home.tier, race: home.race },
-    away: { id: away.id, nickname: away.nickname, tier: away.tier, race: away.race },
+    home: toPlayerInfo(home),
+    away: toPlayerInfo(away),
   };
 }
 
@@ -131,7 +147,48 @@ function isEntryPublishedForPredict(match: PredictMatch, previewMode: boolean, n
   return isPublished(toPredictionEntryContext(match), now);
 }
 
-function buildSetPayload(
+function buildResultsSetPayload(
+  match: PredictMatch,
+  set: PredictMatch["sets"][number],
+  setIndex: number,
+  slots: EntrySlotPlayer[],
+  myBet: Awaited<ReturnType<typeof loadMySetPredictions>>[number] | undefined,
+) {
+  const players = resolveSetPlayers(match, set.id, setIndex, slots, false);
+  const winnerPlayer = set.result?.winnerPlayer
+    ? toPlayerInfo(set.result.winnerPlayer)
+    : null;
+
+  return {
+    setId: set.id,
+    orderIndex: set.orderIndex,
+    tierBracket: set.tierBracket,
+    homePlayer: players.home,
+    awayPlayer: players.away,
+    winnerPlayer,
+    odds: {
+      home: 0,
+      away: 0,
+      homeLabel: "-",
+      awayLabel: "-",
+    },
+    pools: { home: 0, away: 0, total: 0 },
+    predictionOpen: false,
+    playersPublished: true,
+    playersReady: !!(players.home && players.away),
+    hasResult: !!set.result,
+    myBet: myBet
+      ? {
+          pickedPlayerId: myBet.pickedPlayerId,
+          stake: myBet.stake,
+          status: myBet.status,
+          payoutAmount: myBet.payoutAmount,
+        }
+      : null,
+  };
+}
+
+function buildUpcomingSetPayload(
   match: PredictMatch,
   set: PredictMatch["sets"][number],
   setIndex: number,
@@ -149,6 +206,7 @@ function buildSetPayload(
       tierBracket: set.tierBracket,
       homePlayer: null,
       awayPlayer: null,
+      winnerPlayer: null,
       odds: {
         home: 0,
         away: 0,
@@ -192,6 +250,7 @@ function buildSetPayload(
     tierBracket: set.tierBracket,
     homePlayer: players.home,
     awayPlayer: players.away,
+    winnerPlayer: null,
     odds: {
       home: odds.home,
       away: odds.away,
@@ -214,6 +273,53 @@ function buildSetPayload(
   };
 }
 
+function buildMatchPayload(
+  match: PredictMatch,
+  boardMode: PredictBoardMode,
+  openPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
+  myPredictionBySet: Map<string, Awaited<ReturnType<typeof loadMySetPredictions>>[number]>,
+  previewMode: boolean,
+) {
+  const slots = toEntrySlots(match);
+  const submissionSets = getEntrySubmissionSets(match.sets);
+
+  return {
+    matchId: match.id,
+    week: match.week,
+    round: match.round,
+    scheduledAt: match.scheduledAt?.toISOString() ?? null,
+    status: match.status,
+    homeTeam: {
+      id: match.homeTeam.id,
+      name: match.homeTeam.name,
+      color: match.homeTeam.color,
+    },
+    awayTeam: {
+      id: match.awayTeam.id,
+      name: match.awayTeam.name,
+      color: match.awayTeam.color,
+    },
+    predictionOpen: boardMode === "results" ? false : isPredictionOpen(match),
+    sets: submissionSets.map((set, index) => {
+      const myBet = myPredictionBySet.get(set.id);
+
+      if (boardMode === "results") {
+        return buildResultsSetPayload(match, set, index, slots, myBet);
+      }
+
+      return buildUpcomingSetPayload(
+        match,
+        set,
+        index,
+        slots,
+        openPredictions,
+        myBet,
+        previewMode,
+      );
+    }),
+  };
+}
+
 export async function buildPredictBoardPayload(discordUserId?: string | null) {
   const previewMode = isDevPredictPreviewEnabled();
   const season = await getActiveSeason();
@@ -221,18 +327,31 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
   if (!season) {
     return {
       previewMode,
+      boardMode: "upcoming" as const,
       points: 0,
       entryDayLabel: null,
       matches: [] as const,
     };
   }
 
-  let matches = await getEntryDayMatches(season.id);
+  let boardMode: PredictBoardMode = "upcoming";
+  let matches: PredictMatch[] = [];
   let usingPreviewFallback = false;
 
-  if (previewMode && matches.length === 0) {
-    matches = await getPredictPreviewMatches(season.id);
-    usingPreviewFallback = true;
+  if (previewMode) {
+    const previewMatches = await getPredictPreviewMatches(season.id);
+    if (previewMatches.length > 0) {
+      matches = previewMatches;
+      usingPreviewFallback = true;
+    }
+  }
+
+  if (matches.length === 0) {
+    const resolved = await resolvePredictDisplayMatch(season.id);
+    if (resolved) {
+      matches = [resolved.match];
+      boardMode = resolved.mode;
+    }
   }
 
   const entrySets = matches.flatMap((match) =>
@@ -240,7 +359,7 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
   );
 
   const [openPredictions, myPredictions] = await Promise.all([
-    loadOpenSetPredictions(entrySets),
+    boardMode === "upcoming" ? loadOpenSetPredictions(entrySets) : Promise.resolve([]),
     discordUserId ? loadMySetPredictions(entrySets, discordUserId) : Promise.resolve([]),
   ]);
 
@@ -259,41 +378,11 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
   return {
     previewMode,
     usingPreviewFallback,
+    boardMode,
     points,
     entryDayLabel,
-    matches: matches.map((match) => {
-      const slots = toEntrySlots(match);
-      const submissionSets = getEntrySubmissionSets(match.sets);
-
-      return {
-        matchId: match.id,
-        week: match.week,
-        round: match.round,
-        scheduledAt: match.scheduledAt?.toISOString() ?? null,
-        status: match.status,
-        homeTeam: {
-          id: match.homeTeam.id,
-          name: match.homeTeam.name,
-          color: match.homeTeam.color,
-        },
-        awayTeam: {
-          id: match.awayTeam.id,
-          name: match.awayTeam.name,
-          color: match.awayTeam.color,
-        },
-        predictionOpen: isPredictionOpen(match),
-        sets: submissionSets.map((set, index) =>
-          buildSetPayload(
-            match,
-            set,
-            index,
-            slots,
-            openPredictions,
-            myPredictionBySet.get(set.id),
-            previewMode,
-          ),
-        ),
-      };
-    }),
+    matches: matches.map((match) =>
+      buildMatchPayload(match, boardMode, openPredictions, myPredictionBySet, previewMode),
+    ),
   };
 }
