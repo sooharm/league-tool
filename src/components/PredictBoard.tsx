@@ -62,6 +62,7 @@ type PredictPayload = {
   usingPreviewFallback?: boolean;
   boardMode?: "results" | "upcoming" | "closed";
   points: number;
+  topPoints: number | null;
   entryDayLabel: string | null;
   matches: MatchCard[];
 };
@@ -305,6 +306,7 @@ export function PredictBoard() {
         usingPreviewFallback: payload.usingPreviewFallback,
         boardMode: payload.boardMode,
         points: payload.points,
+        topPoints: payload.topPoints ?? null,
         entryDayLabel: payload.entryDayLabel,
         matches: payload.matches,
       });
@@ -341,16 +343,25 @@ export function PredictBoard() {
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">보유 포인트</p>
-            <p className="text-3xl font-bold text-[var(--accent)]">{data.points} P</p>
+      <div className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">보유 포인트</p>
+              <p className="text-3xl font-bold text-[var(--accent)]">{data.points} P</p>
+            </div>
           </div>
+          {data.entryDayLabel ? (
+            <p className="text-sm text-[var(--muted)] sm:text-right">
+              엔트리 일정: <span className="text-[var(--foreground)]">{data.entryDayLabel}</span>
+            </p>
+          ) : null}
         </div>
-        {data.entryDayLabel ? (
-          <p className="text-sm text-[var(--muted)] sm:text-right">
-            엔트리 일정: <span className="text-[var(--foreground)]">{data.entryDayLabel}</span>
+        {data.topPoints != null ? (
+          <p className="mt-3 border-t border-[var(--card-border)] pt-3 text-sm text-[var(--muted)]">
+            현재 누적포인트 1위는{" "}
+            <span className="font-semibold text-[var(--foreground)]">{data.topPoints}</span>
+            포인트입니다
           </p>
         ) : null}
       </div>
@@ -432,7 +443,7 @@ export function PredictBoard() {
                       <section key={set.setId} className="px-5 py-4">
                         <div className="mb-3 flex items-center justify-between">
                           <p className="text-sm font-bold text-[var(--foreground)]">{set.orderIndex}세트</p>
-                          {set.playersPublished && !isResultsBoard ? (
+                          {set.playersPublished ? (
                             <p className="text-xs font-medium text-[var(--muted)]">풀 {set.pools.total}P</p>
                           ) : null}
                         </div>
@@ -447,6 +458,8 @@ export function PredictBoard() {
                                   <PlayerDuelPanel
                                     player={set.homePlayer}
                                     teamColor={match.homeTeam.color}
+                                    oddsLabel={set.odds.homeLabel}
+                                    poolAmount={set.pools.home}
                                     isWinner={set.winnerPlayer?.id === set.homePlayer.id}
                                     isResultsMode
                                     muted={set.winnerPlayer != null && set.winnerPlayer.id !== set.homePlayer.id}
@@ -456,6 +469,8 @@ export function PredictBoard() {
                                   <PlayerDuelPanel
                                     player={set.awayPlayer}
                                     teamColor={match.awayTeam.color}
+                                    oddsLabel={set.odds.awayLabel}
+                                    poolAmount={set.pools.away}
                                     isWinner={set.winnerPlayer?.id === set.awayPlayer.id}
                                     isResultsMode
                                     muted={set.winnerPlayer != null && set.winnerPlayer.id !== set.awayPlayer.id}

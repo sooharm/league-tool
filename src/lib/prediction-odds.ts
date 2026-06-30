@@ -34,6 +34,30 @@ export function computePredictionPools(
   return { home, away, total: home + away };
 }
 
+/** 정산 후 results 화면용 — REFUNDED 제외, OPEN/WON/LOST stake 합산 */
+export function computeFinalPredictionPools(
+  predictions: { pickedPlayerId: string; stake: number; status: string }[],
+  homePlayerId: string,
+  awayPlayerId: string,
+): PredictionPool {
+  let home = 0;
+  let away = 0;
+
+  for (const prediction of predictions) {
+    if (prediction.status === "REFUNDED") {
+      continue;
+    }
+
+    if (prediction.pickedPlayerId === homePlayerId) {
+      home += prediction.stake;
+    } else if (prediction.pickedPlayerId === awayPlayerId) {
+      away += prediction.stake;
+    }
+  }
+
+  return { home, away, total: home + away };
+}
+
 export function computePredictionOdds(pool: PredictionPool): PredictionOdds {
   return {
     home: pool.home > 0 ? pool.total / pool.home : DEFAULT_ODDS,

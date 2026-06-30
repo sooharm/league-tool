@@ -34,6 +34,20 @@ export async function getWalletPoints(discordUserId: string): Promise<number> {
   }
 }
 
+export async function getTopWalletPoints(): Promise<number | null> {
+  try {
+    const top = await prisma.discordWallet.findFirst({
+      orderBy: { points: "desc" },
+      select: { points: true },
+    });
+
+    return top?.points ?? null;
+  } catch (error) {
+    console.error("[points] getTopWalletPoints failed:", error);
+    return null;
+  }
+}
+
 async function ensureWallet(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], discordUserId: string) {
   return tx.discordWallet.upsert({
     where: { discordUserId },

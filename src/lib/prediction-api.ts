@@ -14,11 +14,12 @@ import {
 } from "@/lib/entry";
 import { isPredictionOpen, isSetPredictionOpen, toPredictionEntryContext } from "@/lib/prediction";
 import {
+  computeFinalPredictionPools,
   computePredictionOdds,
   computePredictionPools,
   formatOdds,
 } from "@/lib/prediction-odds";
-import { getWalletPoints } from "@/lib/points";
+import { getTopWalletPoints, getWalletPoints } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 
 const PREVIEW_SAMPLE_POOL = { home: 40, away: 25, total: 65 };
@@ -120,6 +121,29 @@ async function loadOpenSetPredictions(setIds: string[]) {
   }
 }
 
+async function loadSetPredictionsForOdds(setIds: string[]) {
+  if (setIds.length === 0) {
+    return [];
+  }
+
+  try {
+    return await prisma.setPrediction.findMany({
+      where: {
+        setId: { in: setIds },
+        status: { not: "REFUNDED" },
+      },
+      select: { setId: true, pickedPlayerId: true, stake: true, status: true },
+    });
+  } catch (error) {
+    if (isDevPredictPreviewEnabled()) {
+      console.error("[predict] preview mode: set predictions for odds unavailable", error);
+      return [];
+    }
+
+    throw error;
+  }
+}
+
 async function loadMySetPredictions(setIds: string[], discordUserId: string) {
   if (setIds.length === 0) {
     return [];
@@ -152,12 +176,31 @@ function buildResultsSetPayload(
   set: PredictMatch["sets"][number],
   setIndex: number,
   slots: EntrySlotPlayer[],
+  setPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
   myBet: Awaited<ReturnType<typeof loadMySetPredictions>>[number] | undefined,
 ) {
   const players = resolveSetPlayers(match, set.id, setIndex, slots, false);
   const winnerPlayer = set.result?.winnerPlayer
     ? toPlayerInfo(set.result.winnerPlayer)
     : null;
+
+  let pool = { home: 0, away: 0, total: 0 };
+  let odds = { home: 0, away: 0, homeLabel: "-", awayLabel: "-" };
+
+  if (players.home && players.away) {
+    pool = computeFinalPredictionPools(
+      setPredictions.filter((item) => item.setId === set.id),
+      players.home.id,
+      players.away.id,
+    );
+    const computed = computePredictionOdds(pool);
+    odds = {
+      home: computed.home,
+      away: computed.away,
+      homeLabel: formatOdds(computed.home),
+      awayLabel: formatOdds(computed.away),
+    };
+  }
 
   return {
     setId: set.id,
@@ -166,13 +209,8 @@ function buildResultsSetPayload(
     homePlayer: players.home,
     awayPlayer: players.away,
     winnerPlayer,
-    odds: {
-      home: 0,
-      away: 0,
-      homeLabel: "-",
-      awayLabel: "-",
-    },
-    pools: { home: 0, away: 0, total: 0 },
+    odds,
+    pools: pool,
     predictionOpen: false,
     playersPublished: true,
     playersReady: !!(players.home && players.away),
@@ -278,7 +316,7 @@ function buildUpcomingSetPayload(
 function buildMatchPayload(
   match: PredictMatch,
   boardMode: PredictBoardMode,
-  openPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
+  setPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
   myPredictionBySet: Map<string, Awaited<ReturnType<typeof loadMySetPredictions>>[number]>,
   previewMode: boolean,
 ) {
@@ -306,7 +344,7 @@ function buildMatchPayload(
       const myBet = myPredictionBySet.get(set.id);
 
       if (boardMode === "results") {
-        return buildResultsSetPayload(match, set, index, slots, myBet);
+        return buildResultsSetPayload(match, set, index, slots, setPredictions, myBet);
       }
 
       return buildUpcomingSetPayload(
@@ -314,7 +352,7 @@ function buildMatchPayload(
         set,
         index,
         slots,
-        openPredictions,
+        setPredictions,
         myBet,
         previewMode,
         boardMode === "closed",
@@ -332,6 +370,7 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
       previewMode,
       boardMode: "upcoming" as const,
       points: 0,
+      topPoints: null,
       entryDayLabel: null,
       matches: [] as const,
     };
@@ -361,11 +400,14 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
     getEntrySubmissionSets(match.sets).map((set) => set.id),
   );
 
-  const [openPredictions, myPredictions] = await Promise.all([
-    boardMode === "upcoming" || boardMode === "closed"
-      ? loadOpenSetPredictions(entrySets)
-      : Promise.resolve([]),
+  const [setPredictions, myPredictions, topPoints] = await Promise.all([
+    boardMode === "results"
+      ? loadSetPredictionsForOdds(entrySets)
+      : boardMode === "upcoming" || boardMode === "closed"
+        ? loadOpenSetPredictions(entrySets)
+        : Promise.resolve([]),
     discordUserId ? loadMySetPredictions(entrySets, discordUserId) : Promise.resolve([]),
+    getTopWalletPoints(),
   ]);
 
   const myPredictionBySet = new Map(myPredictions.map((item) => [item.setId, item]));
@@ -385,9 +427,10 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
     usingPreviewFallback,
     boardMode,
     points,
+    topPoints,
     entryDayLabel,
     matches: matches.map((match) =>
-      buildMatchPayload(match, boardMode, openPredictions, myPredictionBySet, previewMode),
+      buildMatchPayload(match, boardMode, setPredictions, myPredictionBySet, previewMode),
     ),
   };
 }
