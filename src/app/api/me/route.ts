@@ -4,6 +4,7 @@ import {
   getAuthContext,
   getMatchPermissions,
 } from "@/lib/permissions";
+import { getWalletPoints } from "@/lib/points";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -17,6 +18,7 @@ export async function GET(request: Request) {
       isAdmin: false,
       isStaff: false,
       player: null,
+      points: 0,
       canManageRoster: false,
       canManageSchedule: false,
       canEditRules: false,
@@ -25,6 +27,7 @@ export async function GET(request: Request) {
   }
 
   const match = matchId ? await getMatchPermissions(context, matchId) : null;
+  const points = await getWalletPoints(context.discordUserId);
 
   return NextResponse.json({
     loggedIn: true,
@@ -32,6 +35,7 @@ export async function GET(request: Request) {
     isAdmin: context.isAdmin,
     isStaff: context.isStaff,
     player: context.player,
+    points,
     canManageRoster: canManageRoster(context),
     canManageSchedule: canManageSchedule(context),
     canEditRules: context.isStaff,

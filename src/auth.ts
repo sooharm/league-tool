@@ -1,3 +1,4 @@
+import { grantWelcomePoints } from "@/lib/points";
 import NextAuth from "next-auth";
 import Discord from "next-auth/providers/discord";
 
@@ -11,6 +12,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   pages: {
     signIn: "/login",
+  },
+  events: {
+    async signIn({ account }) {
+      if (account?.provider === "discord" && account.providerAccountId) {
+        await grantWelcomePoints(account.providerAccountId);
+      }
+    },
   },
   callbacks: {
     jwt({ token, account }) {

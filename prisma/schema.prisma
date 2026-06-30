@@ -180,3 +180,11 @@ model EntrySlot {
   @@index([teamId])
   @@index([setId])
 }
+
+model DiscordWallet {
+  id            String   @id @default(cuid())
+  discordUserId String   @unique
+  points        Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

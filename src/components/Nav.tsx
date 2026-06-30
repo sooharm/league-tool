@@ -11,6 +11,7 @@ const links = [
   { href: "/players", label: "개인 순위" },
   { href: "/schedule", label: "일정" },
   { href: "/results", label: "경기결과" },
+  { href: "/predict", label: "승부예측" },
   { href: "/db", label: "DB" },
   { href: "/roster", label: "로스터" },
   { href: "/rules", label: "규정집" },

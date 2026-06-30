@@ -40,6 +40,17 @@ npm run dev
 - 스키마 반영: `npx prisma db push`
 - 시드: `npm run db:seed`
 
+### 스키마 변경 후 배포 (DiscordWallet 등)
+
+Vercel 빌드는 `prisma generate`만 실행합니다. **새 테이블을 추가한 뒤** Neon에 스키마를 반영해야 합니다.
+
+```powershell
+# Vercel/Neon 환경 변수가 설정된 터미널에서 (또는 Neon 대시보드 SQL)
+npx prisma db push
+```
+
+배포 순서: 코드 push → Vercel 빌드 성공 확인 → 위 `db push` 1회 → 배포 URL에서 Discord 로그인·포인트 확인
+
 ## Vercel + Neon 배포
 
 1. [neon.tech](https://neon.tech)에서 프로젝트 생성 → **Pooled** / **Direct** 연결 문자열 복사

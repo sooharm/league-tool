@@ -2,10 +2,13 @@ import { DiscordAuthButton } from "@/components/DiscordAuthButton";
 import { DiscordIdCopy } from "@/components/DiscordIdCopy";
 import { PageShell } from "@/components/PageShell";
 import { auth } from "@/auth";
+import { getWalletPoints } from "@/lib/points";
 import Link from "next/link";
 
 export default async function LoginPage() {
   const session = await auth();
+  const points =
+    session?.user?.id != null ? await getWalletPoints(session.user.id) : null;
 
   return (
     <PageShell
@@ -22,6 +25,12 @@ export default async function LoginPage() {
               님으로 로그인되어 있습니다.
             </p>
             {session.user.id ? <DiscordIdCopy discordUserId={session.user.id} /> : null}
+            {points != null ? (
+              <div className="rounded-lg border border-[var(--card-border)] bg-white/5 px-4 py-3">
+                <p className="text-xs text-[var(--muted)]">보유 포인트</p>
+                <p className="mt-1 text-2xl font-bold text-[var(--accent)]">{points} P</p>
+              </div>
+            ) : null}
             <DiscordAuthButton session={session} />
           </>
         ) : (
