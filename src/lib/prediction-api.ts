@@ -196,6 +196,7 @@ function buildUpcomingSetPayload(
   openPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
   myBet: Awaited<ReturnType<typeof loadMySetPredictions>>[number] | undefined,
   previewMode: boolean,
+  bettingClosed = false,
 ) {
   const playersPublished = isEntryPublishedForPredict(match, previewMode);
 
@@ -240,6 +241,7 @@ function buildUpcomingSetPayload(
   const odds = computePredictionOdds(pool);
   const playersReady = !!(players.home && players.away);
   const predictionOpen =
+    !bettingClosed &&
     playersReady &&
     (isSetPredictionOpen(match, set, slots) ||
       (previewMode && isPredictionOpen(match) && !set.result));
@@ -299,7 +301,7 @@ function buildMatchPayload(
       name: match.awayTeam.name,
       color: match.awayTeam.color,
     },
-    predictionOpen: boardMode === "results" ? false : isPredictionOpen(match),
+    predictionOpen: boardMode === "upcoming" ? isPredictionOpen(match) : false,
     sets: submissionSets.map((set, index) => {
       const myBet = myPredictionBySet.get(set.id);
 
@@ -315,6 +317,7 @@ function buildMatchPayload(
         openPredictions,
         myBet,
         previewMode,
+        boardMode === "closed",
       );
     }),
   };
@@ -359,7 +362,9 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
   );
 
   const [openPredictions, myPredictions] = await Promise.all([
-    boardMode === "upcoming" ? loadOpenSetPredictions(entrySets) : Promise.resolve([]),
+    boardMode === "upcoming" || boardMode === "closed"
+      ? loadOpenSetPredictions(entrySets)
+      : Promise.resolve([]),
     discordUserId ? loadMySetPredictions(entrySets, discordUserId) : Promise.resolve([]),
   ]);
 

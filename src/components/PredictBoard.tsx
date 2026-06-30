@@ -60,7 +60,7 @@ type PredictPayload = {
   loggedIn: boolean;
   previewMode?: boolean;
   usingPreviewFallback?: boolean;
-  boardMode?: "results" | "upcoming";
+  boardMode?: "results" | "upcoming" | "closed";
   points: number;
   entryDayLabel: string | null;
   matches: MatchCard[];
@@ -375,6 +375,7 @@ export function PredictBoard() {
         <div className="space-y-5">
           {data.matches.map((match) => {
             const isResultsBoard = data.boardMode === "results";
+            const isClosedBoard = data.boardMode === "closed";
 
             return (
               <article
@@ -392,6 +393,8 @@ export function PredictBoard() {
                   </p>
                   {isResultsBoard ? (
                     <p className="mt-2 text-sm text-[var(--muted)]">경기 종료 · 배팅 결과</p>
+                  ) : isClosedBoard ? (
+                    <p className="mt-2 text-sm text-[var(--muted)]">배팅 마감 · 최종 배당</p>
                   ) : !match.predictionOpen ? (
                     <p className="mt-2 text-sm text-[var(--muted)]">
                       {match.status === "COMPLETED"
@@ -430,7 +433,7 @@ export function PredictBoard() {
                         <div className="mb-3 flex items-center justify-between">
                           <p className="text-sm font-bold text-[var(--foreground)]">{set.orderIndex}세트</p>
                           {set.playersPublished && !isResultsBoard ? (
-                            <p className="text-xs text-[var(--muted)]">풀 {set.pools.total}P</p>
+                            <p className="text-xs font-medium text-[var(--muted)]">풀 {set.pools.total}P</p>
                           ) : null}
                         </div>
 

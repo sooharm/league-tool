@@ -220,7 +220,7 @@ export function getKoreaDayStart(date: Date): Date {
   return new Date(`${dateKey}T00:00:00+09:00`);
 }
 
-export type PredictBoardMode = "results" | "upcoming";
+export type PredictBoardMode = "results" | "upcoming" | "closed";
 
 export type PredictMatchWithInclude = NonNullable<
   Awaited<ReturnType<typeof getLastCompletedMatch>>
@@ -266,11 +266,30 @@ export async function getNextPredictMatch(seasonId: string) {
   return null;
 }
 
+/** 경기 시작(예: 21:00) 이후·종료 전 — 배팅 마감·최종 배당 표시용 */
+export async function getActivePredictMatch(seasonId: string, now = new Date()) {
+  return prisma.match.findFirst({
+    where: {
+      seasonId,
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+      scheduledAt: { not: null, lte: now },
+      sets: { some: {} },
+    },
+    include: predictMatchInclude,
+    orderBy: { scheduledAt: "desc" },
+  });
+}
+
 export async function resolvePredictDisplayMatch(seasonId: string, now = new Date()) {
-  const [lastCompleted, nextMatch] = await Promise.all([
+  const [activeMatch, lastCompleted, nextMatch] = await Promise.all([
+    getActivePredictMatch(seasonId, now),
     getLastCompletedMatch(seasonId),
     getNextPredictMatch(seasonId),
   ]);
+
+  if (activeMatch) {
+    return { match: activeMatch, mode: "closed" as const };
+  }
 
   if (lastCompleted && nextMatch?.scheduledAt) {
     if (now < getKoreaDayStart(nextMatch.scheduledAt)) {
