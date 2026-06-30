@@ -7,6 +7,7 @@ import {
   resolveMatchStatusAfterSave,
   type SetResultInput,
 } from "@/lib/results";
+import { settleMatchPredictions } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 import type { TierBracket } from "@prisma/client";
 
@@ -274,6 +275,10 @@ export async function validateAndSaveResults(
 
   await syncMatchSixManFromResults(matchId);
 
+  if (status === "COMPLETED") {
+    await settleMatchPredictions(matchId);
+  }
+
   const synced = await loadMatchForResults(matchId);
   if (!synced) {
     throw new Error("MATCH_NOT_FOUND");
@@ -341,6 +346,10 @@ export async function removeAceSet(matchId: string, setId: string) {
   });
 
   await syncMatchSixManFromResults(matchId);
+
+  if (status === "COMPLETED") {
+    await settleMatchPredictions(matchId);
+  }
 
   const synced = await loadMatchForResults(matchId);
   if (!synced) {

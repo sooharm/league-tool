@@ -40,7 +40,7 @@ npm run dev
 - 스키마 반영: `npx prisma db push`
 - 시드: `npm run db:seed`
 
-### 스키마 변경 후 배포 (DiscordWallet 등)
+### 스키마 변경 후 배포 (DiscordWallet / MatchPrediction 등)
 
 Vercel 빌드는 `prisma generate`만 실행합니다. **새 테이블을 추가한 뒤** Neon에 스키마를 반영해야 합니다.
 

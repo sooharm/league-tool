@@ -162,6 +162,45 @@ export async function getSeasonPlayerStandings(seasonId: string) {
   return calculatePlayerDetailStandings(players, matches as MatchWithResults[]);
 }
 
+const KOREA_TIMEZONE = "Asia/Seoul";
+
+export function getKoreaDateKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: KOREA_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+export async function getEntryDayMatches(seasonId: string) {
+  const anchor = await getNearestFutureEntryMatch(seasonId);
+  if (!anchor?.scheduledAt) {
+    return [];
+  }
+
+  const dateKey = getKoreaDateKey(anchor.scheduledAt);
+
+  const matches = await prisma.match.findMany({
+    where: {
+      seasonId,
+      scheduledAt: { not: null },
+      sets: { some: {} },
+    },
+    include: {
+      homeTeam: true,
+      awayTeam: true,
+      entry: true,
+      sets: { select: { id: true } },
+    },
+    orderBy: [{ scheduledAt: "asc" }, { week: "asc" }],
+  });
+
+  return matches.filter(
+    (match) => match.scheduledAt && getKoreaDateKey(match.scheduledAt) === dateKey,
+  );
+}
+
 export async function getNearestFutureEntryMatch(seasonId: string) {
   const now = new Date();
 

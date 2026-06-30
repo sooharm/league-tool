@@ -7,11 +7,11 @@ import Link from "next/link";
 
 const links = [
   { href: "/entry", label: "금일의 엔트리" },
+  { href: "/predict", label: "승부예측" },
   { href: "/", label: "팀 순위" },
   { href: "/players", label: "개인 순위" },
   { href: "/schedule", label: "일정" },
   { href: "/results", label: "경기결과" },
-  { href: "/predict", label: "승부예측" },
   { href: "/db", label: "DB" },
   { href: "/roster", label: "로스터" },
   { href: "/rules", label: "규정집" },
