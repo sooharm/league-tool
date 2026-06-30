@@ -1,5 +1,5 @@
 import { isDevPredictPreviewEnabled } from "@/lib/dev-predict";
-import { getEntrySubmissionSets, getSetEntryPlayers } from "@/lib/entry";
+import { getEntrySubmissionSets, getSetEntryPlayers, type EntrySlotPlayer } from "@/lib/entry";
 import { isSetPredictionOpen } from "@/lib/prediction";
 import { computePredictionPools, computeWinnerPayout } from "@/lib/prediction-odds";
 import { prisma } from "@/lib/prisma";
@@ -62,7 +62,7 @@ function resolveSetPlayerIds(
   setIndex: number,
   homeTeamId: string,
   awayTeamId: string,
-  slots: { teamId: string; setId: string; playerId: string }[],
+  slots: EntrySlotPlayer[],
   homeRoster: { id: string }[],
   awayRoster: { id: string }[],
 ) {
