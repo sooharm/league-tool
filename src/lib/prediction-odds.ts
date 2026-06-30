@@ -12,9 +12,9 @@ export type PredictionOdds = {
 };
 
 export function computePredictionPools(
-  predictions: { pickedTeamId: string; stake: number; status: string }[],
-  homeTeamId: string,
-  awayTeamId: string,
+  predictions: { pickedPlayerId: string; stake: number; status: string }[],
+  homePlayerId: string,
+  awayPlayerId: string,
 ): PredictionPool {
   let home = 0;
   let away = 0;
@@ -24,9 +24,9 @@ export function computePredictionPools(
       continue;
     }
 
-    if (prediction.pickedTeamId === homeTeamId) {
+    if (prediction.pickedPlayerId === homePlayerId) {
       home += prediction.stake;
-    } else if (prediction.pickedTeamId === awayTeamId) {
+    } else if (prediction.pickedPlayerId === awayPlayerId) {
       away += prediction.stake;
     }
   }

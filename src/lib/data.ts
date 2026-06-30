@@ -34,6 +34,40 @@ const matchInclude = {
   },
 };
 
+const predictMatchInclude = {
+  homeTeam: {
+    include: {
+      players: {
+        where: { isActive: true },
+        orderBy: [{ tier: "asc" as const }, { nickname: "asc" as const }],
+      },
+    },
+  },
+  awayTeam: {
+    include: {
+      players: {
+        where: { isActive: true },
+        orderBy: [{ tier: "asc" as const }, { nickname: "asc" as const }],
+      },
+    },
+  },
+  entry: {
+    include: {
+      slots: {
+        include: {
+          player: {
+            select: { nickname: true, tier: true, race: true },
+          },
+        },
+      },
+    },
+  },
+  sets: {
+    orderBy: { orderIndex: "asc" as const },
+    include: { result: true },
+  },
+};
+
 const seasonWithTeamsInclude = {
   teams: {
     orderBy: { sortOrder: "asc" as const },
@@ -187,12 +221,7 @@ export async function getEntryDayMatches(seasonId: string) {
       scheduledAt: { not: null },
       sets: { some: {} },
     },
-    include: {
-      homeTeam: true,
-      awayTeam: true,
-      entry: true,
-      sets: { select: { id: true } },
-    },
+    include: predictMatchInclude,
     orderBy: [{ scheduledAt: "asc" }, { week: "asc" }],
   });
 
@@ -221,6 +250,20 @@ export async function getNearestFutureEntryMatch(seasonId: string) {
   });
 
   return matches[0] ?? null;
+}
+
+export async function getPredictPreviewMatches(seasonId: string, limit = 6) {
+  return prisma.match.findMany({
+    where: {
+      seasonId,
+      scheduledAt: { not: null },
+      sets: { some: {} },
+      status: { in: ["SCHEDULED", "IN_PROGRESS"] },
+    },
+    include: predictMatchInclude,
+    orderBy: [{ scheduledAt: "asc" }, { week: "asc" }],
+    take: limit,
+  });
 }
 
 export async function getMatchForEntry(matchId: string) {

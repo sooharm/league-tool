@@ -1,5 +1,16 @@
-import { getActiveSeason, getEntryDayMatches } from "@/lib/data";
-import { isPredictionOpen } from "@/lib/prediction";
+import { isDevPredictPreviewEnabled } from "@/lib/dev-predict";
+import {
+  getActiveSeason,
+  getEntryDayMatches,
+  getPredictPreviewMatches,
+} from "@/lib/data";
+import {
+  getEntrySubmissionSets,
+  getSetEntryPlayers,
+  isPublished,
+  type EntrySlotPlayer,
+} from "@/lib/entry";
+import { isPredictionOpen, isSetPredictionOpen, toPredictionEntryContext } from "@/lib/prediction";
 import {
   computePredictionOdds,
   computePredictionPools,
@@ -8,40 +19,232 @@ import {
 import { getWalletPoints } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 
+const PREVIEW_SAMPLE_POOL = { home: 40, away: 25, total: 65 };
+
+type PredictMatch = Awaited<ReturnType<typeof getEntryDayMatches>>[number];
+
+type PlayerInfo = {
+  id: string;
+  nickname: string;
+  tier: number;
+  race: string;
+};
+
+function toEntrySlots(match: PredictMatch): EntrySlotPlayer[] {
+  return (
+    match.entry?.slots.map((slot) => ({
+      teamId: slot.teamId,
+      setId: slot.setId,
+      playerId: slot.playerId,
+      player: slot.player,
+    })) ?? []
+  );
+}
+
+function previewPlayersForSet(
+  match: PredictMatch,
+  setIndex: number,
+): { home: PlayerInfo | null; away: PlayerInfo | null } {
+  const homeRoster = match.homeTeam.players;
+  const awayRoster = match.awayTeam.players;
+
+  if (homeRoster.length === 0 || awayRoster.length === 0) {
+    return { home: null, away: null };
+  }
+
+  const home = homeRoster[setIndex % homeRoster.length];
+  const away = awayRoster[setIndex % awayRoster.length];
+
+  return {
+    home: { id: home.id, nickname: home.nickname, tier: home.tier, race: home.race },
+    away: { id: away.id, nickname: away.nickname, tier: away.tier, race: away.race },
+  };
+}
+
+function resolveSetPlayers(
+  match: PredictMatch,
+  setId: string,
+  setIndex: number,
+  slots: EntrySlotPlayer[],
+  previewMode: boolean,
+): { home: PlayerInfo | null; away: PlayerInfo | null } {
+  const fromEntry = getSetEntryPlayers(setId, match.homeTeamId, match.awayTeamId, slots);
+
+  if (fromEntry.home && fromEntry.away) {
+    return fromEntry;
+  }
+
+  if (previewMode) {
+    return previewPlayersForSet(match, setIndex);
+  }
+
+  return {
+    home: fromEntry.home,
+    away: fromEntry.away,
+  };
+}
+
+async function loadOpenSetPredictions(setIds: string[]) {
+  if (setIds.length === 0) {
+    return [];
+  }
+
+  try {
+    return await prisma.setPrediction.findMany({
+      where: { setId: { in: setIds }, status: "OPEN" },
+      select: { setId: true, pickedPlayerId: true, stake: true, status: true },
+    });
+  } catch (error) {
+    if (isDevPredictPreviewEnabled()) {
+      console.error("[predict] preview mode: open predictions unavailable", error);
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+async function loadMySetPredictions(setIds: string[], discordUserId: string) {
+  if (setIds.length === 0) {
+    return [];
+  }
+
+  try {
+    return await prisma.setPrediction.findMany({
+      where: { setId: { in: setIds }, discordUserId },
+    });
+  } catch (error) {
+    if (isDevPredictPreviewEnabled()) {
+      console.error("[predict] preview mode: my predictions unavailable", error);
+      return [];
+    }
+
+    throw error;
+  }
+}
+
+function isEntryPublishedForPredict(match: PredictMatch, previewMode: boolean, now = new Date()) {
+  if (previewMode) {
+    return true;
+  }
+
+  return isPublished(toPredictionEntryContext(match), now);
+}
+
+function buildSetPayload(
+  match: PredictMatch,
+  set: PredictMatch["sets"][number],
+  setIndex: number,
+  slots: EntrySlotPlayer[],
+  openPredictions: { setId: string; pickedPlayerId: string; stake: number; status: string }[],
+  myBet: Awaited<ReturnType<typeof loadMySetPredictions>>[number] | undefined,
+  previewMode: boolean,
+) {
+  const playersPublished = isEntryPublishedForPredict(match, previewMode);
+
+  if (!playersPublished) {
+    return {
+      setId: set.id,
+      orderIndex: set.orderIndex,
+      tierBracket: set.tierBracket,
+      homePlayer: null,
+      awayPlayer: null,
+      odds: {
+        home: 0,
+        away: 0,
+        homeLabel: "-",
+        awayLabel: "-",
+      },
+      pools: { home: 0, away: 0, total: 0 },
+      predictionOpen: false,
+      playersPublished: false,
+      playersReady: false,
+      hasResult: !!set.result,
+      myBet: null,
+    };
+  }
+
+  const players = resolveSetPlayers(match, set.id, setIndex, slots, previewMode);
+
+  let pool = { home: 0, away: 0, total: 0 };
+  if (players.home && players.away) {
+    pool = computePredictionPools(
+      openPredictions.filter((item) => item.setId === set.id),
+      players.home.id,
+      players.away.id,
+    );
+
+    if (previewMode && pool.total === 0) {
+      pool = { ...PREVIEW_SAMPLE_POOL };
+    }
+  }
+
+  const odds = computePredictionOdds(pool);
+  const playersReady = !!(players.home && players.away);
+  const predictionOpen =
+    playersReady &&
+    (isSetPredictionOpen(match, set, slots) ||
+      (previewMode && isPredictionOpen(match) && !set.result));
+
+  return {
+    setId: set.id,
+    orderIndex: set.orderIndex,
+    tierBracket: set.tierBracket,
+    homePlayer: players.home,
+    awayPlayer: players.away,
+    odds: {
+      home: odds.home,
+      away: odds.away,
+      homeLabel: formatOdds(odds.home),
+      awayLabel: formatOdds(odds.away),
+    },
+    pools: pool,
+    predictionOpen,
+    playersPublished: true,
+    playersReady,
+    hasResult: !!set.result,
+    myBet: myBet
+      ? {
+          pickedPlayerId: myBet.pickedPlayerId,
+          stake: myBet.stake,
+          status: myBet.status,
+          payoutAmount: myBet.payoutAmount,
+        }
+      : null,
+  };
+}
+
 export async function buildPredictBoardPayload(discordUserId?: string | null) {
+  const previewMode = isDevPredictPreviewEnabled();
   const season = await getActiveSeason();
 
   if (!season) {
     return {
+      previewMode,
       points: 0,
       entryDayLabel: null,
       matches: [] as const,
     };
   }
 
-  const matches = await getEntryDayMatches(season.id);
-  const matchIds = matches.map((match) => match.id);
+  let matches = await getEntryDayMatches(season.id);
+  let usingPreviewFallback = false;
+
+  if (previewMode && matches.length === 0) {
+    matches = await getPredictPreviewMatches(season.id);
+    usingPreviewFallback = true;
+  }
+
+  const entrySets = matches.flatMap((match) =>
+    getEntrySubmissionSets(match.sets).map((set) => set.id),
+  );
 
   const [openPredictions, myPredictions] = await Promise.all([
-    prisma.matchPrediction.findMany({
-      where: { matchId: { in: matchIds }, status: "OPEN" },
-      select: { matchId: true, pickedTeamId: true, stake: true, status: true },
-    }),
-    discordUserId
-      ? prisma.matchPrediction.findMany({
-          where: { matchId: { in: matchIds }, discordUserId },
-        })
-      : Promise.resolve([]),
+    loadOpenSetPredictions(entrySets),
+    discordUserId ? loadMySetPredictions(entrySets, discordUserId) : Promise.resolve([]),
   ]);
 
-  const myPredictionByMatch = new Map(myPredictions.map((item) => [item.matchId, item]));
-  const openPredictionsByMatch = new Map<string, typeof openPredictions>();
-
-  for (const prediction of openPredictions) {
-    const list = openPredictionsByMatch.get(prediction.matchId) ?? [];
-    list.push(prediction);
-    openPredictionsByMatch.set(prediction.matchId, list);
-  }
+  const myPredictionBySet = new Map(myPredictions.map((item) => [item.setId, item]));
 
   const entryDayLabel =
     matches[0]?.scheduledAt?.toLocaleDateString("ko-KR", {
@@ -54,16 +257,13 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
   const points = discordUserId ? await getWalletPoints(discordUserId) : 0;
 
   return {
+    previewMode,
+    usingPreviewFallback,
     points,
     entryDayLabel,
     matches: matches.map((match) => {
-      const pool = computePredictionPools(
-        openPredictionsByMatch.get(match.id) ?? [],
-        match.homeTeamId,
-        match.awayTeamId,
-      );
-      const odds = computePredictionOdds(pool);
-      const myBet = myPredictionByMatch.get(match.id);
+      const slots = toEntrySlots(match);
+      const submissionSets = getEntrySubmissionSets(match.sets);
 
       return {
         matchId: match.id,
@@ -81,22 +281,18 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
           name: match.awayTeam.name,
           color: match.awayTeam.color,
         },
-        odds: {
-          home: odds.home,
-          away: odds.away,
-          homeLabel: formatOdds(odds.home),
-          awayLabel: formatOdds(odds.away),
-        },
-        pools: pool,
         predictionOpen: isPredictionOpen(match),
-        myBet: myBet
-          ? {
-              pickedTeamId: myBet.pickedTeamId,
-              stake: myBet.stake,
-              status: myBet.status,
-              payoutAmount: myBet.payoutAmount,
-            }
-          : null,
+        sets: submissionSets.map((set, index) =>
+          buildSetPayload(
+            match,
+            set,
+            index,
+            slots,
+            openPredictions,
+            myPredictionBySet.get(set.id),
+            previewMode,
+          ),
+        ),
       };
     }),
   };

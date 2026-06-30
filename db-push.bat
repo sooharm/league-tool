@@ -28,7 +28,7 @@ if not exist ".env" (
 
 echo Prisma 스키마를 Neon DB에 반영합니다...
 echo.
-call npx prisma db push
+call npx.cmd prisma db push
 if errorlevel 1 (
     echo.
     echo [오류] db push 실패. DATABASE_URL / DIRECT_URL 값을 확인하세요.
@@ -37,5 +37,5 @@ if errorlevel 1 (
 )
 
 echo.
-echo 완료. DiscordWallet 테이블이 생성되었습니다.
+echo 완료. DiscordWallet / SetPrediction 테이블이 반영되었습니다.
 pause

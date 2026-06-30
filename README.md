@@ -12,16 +12,20 @@
 
 ## 시작하기 (Windows)
 
-**가장 쉬운 방법:** `start.bat` 더블클릭
+**가장 쉬운 방법:** `dev.bat` 더블클릭 (또는 PowerShell에서 `.\dev.bat`)
 
 또는 터미널에서:
 
 ```powershell
-cd "C:\Users\user\Desktop\SCR coding\League tool"
-npm install
-npm run db:setup
-npm run dev
+cd "C:\League Tool"
+$env:Path = "C:\Program Files\nodejs;" + $env:Path
+npm.cmd install
+npm.cmd run db:setup
+npm.cmd run dev
 ```
+
+> PowerShell에서 `npm run dev`가 **실행 정책(Execution Policy)** 오류로 막히면 `npm` 대신 **`npm.cmd`** 를 쓰세요.  
+> (`npm.ps1`은 차단되지만 `npm.cmd`는 정상 동작합니다.)
 
 브라우저에서 http://localhost:3000
 
@@ -29,9 +33,10 @@ npm run dev
 
 | 증상 | 해결 |
 |------|------|
-| `'npm'은(는) 인식되지 않습니다` | [Node.js LTS](https://nodejs.org) 설치 후 **터미널/Cursor 재시작**, 또는 `start.bat` 사용 |
-| `Cannot find module` | `npm install` 실행 |
-| DB 관련 오류 | `npm run db:setup` 실행 |
+| `'npm'은(는) 인식되지 않습니다` | [Node.js LTS](https://nodejs.org) 설치 후 **터미널/Cursor 재시작**, 또는 `dev.bat` / `start.bat` 사용 |
+| `스크립트를 실행할 수 없으므로 npm.ps1을 로드할 수 없습니다` | `npm.cmd run dev` 사용, 또는 `.\dev.bat` 실행 |
+| `Cannot find module` | `npm.cmd install` 실행 |
+| DB 관련 오류 | `npm.cmd run db:setup` 실행 |
 | 포트 사용 중 | 다른 프로그램이 3000 포트 사용 중 → 해당 프로그램 종료 |
 
 ## DB
@@ -40,13 +45,13 @@ npm run dev
 - 스키마 반영: `npx prisma db push`
 - 시드: `npm run db:seed`
 
-### 스키마 변경 후 배포 (DiscordWallet / MatchPrediction 등)
+### 스키마 변경 후 배포 (DiscordWallet / SetPrediction 등)
 
 Vercel 빌드는 `prisma generate`만 실행합니다. **새 테이블을 추가한 뒤** Neon에 스키마를 반영해야 합니다.
 
 ```powershell
 # Vercel/Neon 환경 변수가 설정된 터미널에서 (또는 Neon 대시보드 SQL)
-npx prisma db push
+npx.cmd prisma db push
 ```
 
 배포 순서: 코드 push → Vercel 빌드 성공 확인 → 위 `db push` 1회 → 배포 URL에서 Discord 로그인·포인트 확인
@@ -74,8 +79,8 @@ npx prisma db push
 $env:Path = "C:\Program Files\nodejs;" + $env:Path
 $env:DATABASE_URL = "Neon Pooled URL"
 $env:DIRECT_URL = "Neon Direct URL"
-npx prisma db push
-npm run db:seed
+npx.cmd prisma db push
+npm.cmd run db:seed
 ```
 
 5. Discord 개발자 포털 → Redirects 추가:

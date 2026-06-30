@@ -23,7 +23,7 @@ echo.
 
 if not exist "node_modules\" (
     echo 패키지 설치 중... (처음 한 번만 시간이 걸립니다)
-    call npm install
+    call npm.cmd install
     if errorlevel 1 (
         echo [오류] npm install 실패
         pause
@@ -33,7 +33,7 @@ if not exist "node_modules\" (
 
 if not exist "prisma\dev.db" (
     echo DB 초기화 중...
-    call npm run db:setup
+    call npm.cmd run db:setup
     if errorlevel 1 (
         echo [오류] DB 설정 실패
         pause
@@ -50,6 +50,6 @@ echo   종료: 이 창에서 Ctrl+C
 echo ========================================
 echo.
 
-call npm run dev:clean
+call npm.cmd run dev:clean
 
 pause

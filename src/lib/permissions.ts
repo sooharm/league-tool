@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { getSelectedSeason } from "@/lib/data";
-import { getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
+import { ensureDevStaffWelcomePoints, getDevStaffAuthContext, isDevStaffBypassEnabled } from "@/lib/dev-auth";
 import { isDiscordAdmin, isDiscordStaff } from "@/lib/discord-staff";
 import { isLeadershipRole } from "@/lib/entry";
 import { prisma } from "@/lib/prisma";
@@ -31,6 +31,7 @@ export type MatchPermissionSnapshot = {
 
 export async function getAuthContext(): Promise<AuthContext | null> {
   if (isDevStaffBypassEnabled()) {
+    await ensureDevStaffWelcomePoints();
     return getDevStaffAuthContext();
   }
 
