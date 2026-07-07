@@ -19,7 +19,7 @@ import {
   computePredictionPools,
   formatOdds,
 } from "@/lib/prediction-odds";
-import { getTopWalletPoints, getWalletPoints } from "@/lib/points";
+import { getTopWalletPointsRanks, getWalletPoints } from "@/lib/points";
 import { prisma } from "@/lib/prisma";
 
 const PREVIEW_SAMPLE_POOL = { home: 40, away: 25, total: 65 };
@@ -370,7 +370,7 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
       previewMode,
       boardMode: "upcoming" as const,
       points: 0,
-      topPoints: null,
+      topPointsRanks: [] as number[],
       entryDayLabel: null,
       matches: [] as const,
     };
@@ -400,14 +400,14 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
     getEntrySubmissionSets(match.sets).map((set) => set.id),
   );
 
-  const [setPredictions, myPredictions, topPoints] = await Promise.all([
+  const [setPredictions, myPredictions, topPointsRanks] = await Promise.all([
     boardMode === "results"
       ? loadSetPredictionsForOdds(entrySets)
       : boardMode === "upcoming" || boardMode === "closed"
         ? loadOpenSetPredictions(entrySets)
         : Promise.resolve([]),
     discordUserId ? loadMySetPredictions(entrySets, discordUserId) : Promise.resolve([]),
-    getTopWalletPoints(),
+    getTopWalletPointsRanks(3),
   ]);
 
   const myPredictionBySet = new Map(myPredictions.map((item) => [item.setId, item]));
@@ -427,7 +427,7 @@ export async function buildPredictBoardPayload(discordUserId?: string | null) {
     usingPreviewFallback,
     boardMode,
     points,
-    topPoints,
+    topPointsRanks,
     entryDayLabel,
     matches: matches.map((match) =>
       buildMatchPayload(match, boardMode, setPredictions, myPredictionBySet, previewMode),

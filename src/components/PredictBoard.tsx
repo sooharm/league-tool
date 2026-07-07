@@ -62,7 +62,7 @@ type PredictPayload = {
   usingPreviewFallback?: boolean;
   boardMode?: "results" | "upcoming" | "closed";
   points: number;
-  topPoints: number | null;
+  topPointsRanks: number[];
   entryDayLabel: string | null;
   matches: MatchCard[];
 };
@@ -306,7 +306,7 @@ export function PredictBoard() {
         usingPreviewFallback: payload.usingPreviewFallback,
         boardMode: payload.boardMode,
         points: payload.points,
-        topPoints: payload.topPoints ?? null,
+        topPointsRanks: payload.topPointsRanks ?? [],
         entryDayLabel: payload.entryDayLabel,
         matches: payload.matches,
       });
@@ -357,12 +357,16 @@ export function PredictBoard() {
             </p>
           ) : null}
         </div>
-        {data.topPoints != null ? (
-          <p className="mt-3 border-t border-[var(--card-border)] pt-3 text-sm text-[var(--muted)]">
-            현재 누적포인트 1위는{" "}
-            <span className="font-semibold text-[var(--foreground)]">{data.topPoints}</span>
-            포인트입니다
-          </p>
+        {data.topPointsRanks.length > 0 ? (
+          <div className="mt-3 space-y-1 border-t border-[var(--card-border)] pt-3 text-sm text-[var(--muted)]">
+            {data.topPointsRanks.map((points, index) => (
+              <p key={index}>
+                현재 누적포인트 {index + 1}위는{" "}
+                <span className="font-semibold text-[var(--foreground)]">{points}</span>
+                포인트입니다.
+              </p>
+            ))}
+          </div>
         ) : null}
       </div>
 
