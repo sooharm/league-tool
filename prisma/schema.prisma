@@ -109,6 +109,7 @@ model Match {
   bjName      String?
   vodUrl      String?
   status      MatchStatus @default(SCHEDULED)
+  countsTowardStandings Boolean @default(true)
   sixManEntryHome Boolean @default(false)
   sixManEntryAway Boolean @default(false)
   createdAt   DateTime    @default(now())

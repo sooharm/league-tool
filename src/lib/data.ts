@@ -143,6 +143,12 @@ export async function getSeasonMatches(seasonId: string) {
   });
 }
 
+/** 개인/팀 순위 집계용 — 플레이오프 등 countsTowardStandings=false 제외 */
+export async function getSeasonRankingMatches(seasonId: string) {
+  const matches = await getSeasonMatches(seasonId);
+  return matches.filter((match) => match.countsTowardStandings);
+}
+
 export async function getScheduleMatches(seasonId: string) {
   const matches = await getSeasonMatches(seasonId);
   return matches.filter((match) => isVisibleOnScheduleTab(match));
@@ -175,7 +181,7 @@ export async function getSeasonStandings(seasonId: string) {
       where: { seasonId },
       orderBy: { sortOrder: "asc" },
     }),
-    getSeasonMatches(seasonId),
+    getSeasonRankingMatches(seasonId),
   ]);
 
   const standings = calculateTeamStandings(teams, matches as MatchWithResults[]);
@@ -198,7 +204,7 @@ export async function getSeasonPlayerStandings(seasonId: string) {
       where: { team: { seasonId }, isActive: true },
       include: { team: true },
     }),
-    getSeasonMatches(seasonId),
+    getSeasonRankingMatches(seasonId),
   ]);
 
   return calculatePlayerDetailStandings(players, matches as MatchWithResults[]);

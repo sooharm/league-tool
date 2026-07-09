@@ -35,6 +35,7 @@ export default async function ScheduleManagePage() {
             round: match.round,
             scheduledAt: match.scheduledAt?.toISOString() ?? null,
             status: match.status,
+            countsTowardStandings: match.countsTowardStandings,
             homeTeam: match.homeTeam,
             awayTeam: match.awayTeam,
             setCount: match.sets.length,

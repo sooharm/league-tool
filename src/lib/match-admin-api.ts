@@ -112,6 +112,7 @@ export async function createMatch(seasonId: string, input: MatchAdminInput) {
       awayTeamId: input.awayTeamId,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       status: input.status,
+      countsTowardStandings: input.countsTowardStandings !== false,
     },
   });
 
@@ -149,6 +150,7 @@ export async function updateMatch(matchId: string, input: MatchAdminInput) {
       awayTeamId: input.awayTeamId,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       status: input.status,
+      countsTowardStandings: input.countsTowardStandings !== false,
     },
   });
 
@@ -190,6 +192,7 @@ export function matchToAdminInput(
     awayTeamId: match.awayTeamId,
     scheduledAt: match.scheduledAt?.toISOString() ?? null,
     status: match.status as MatchStatus,
+    countsTowardStandings: match.countsTowardStandings,
     sets: match.sets.map((set) => ({
       id: set.id,
       orderIndex: set.orderIndex,

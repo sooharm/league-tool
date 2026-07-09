@@ -22,6 +22,7 @@ type MatchSummary = {
   round: number;
   scheduledAt: string | null;
   status: MatchStatus;
+  countsTowardStandings: boolean;
   homeTeam: TeamOption;
   awayTeam: TeamOption;
   setCount: number;
@@ -54,6 +55,7 @@ function emptyMatch(teams: TeamOption[]): MatchAdminInput {
     awayTeamId: teams[1]?.id ?? teams[0]?.id ?? "",
     scheduledAt: null,
     status: "SCHEDULED",
+    countsTowardStandings: true,
     sets: defaultSets(),
   };
 }
@@ -269,6 +271,7 @@ export function MatchManager({ initialData }: { initialData: AdminData }) {
                             )}{" "}
                             · {match.setCount}세트
                             {match.hasResults ? " · 결과 있음" : ""}
+                            {!match.countsTowardStandings ? " · 플레이오프" : ""}
                           </span>
                         </button>
                       ))}
@@ -373,6 +376,24 @@ export function MatchManager({ initialData }: { initialData: AdminData }) {
                   </select>
                 </label>
               </div>
+
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={form.countsTowardStandings}
+                  onChange={(e) =>
+                    updateForm({ countsTowardStandings: e.target.checked })
+                  }
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium">개인/팀 순위에 반영</span>
+                  <span className="mt-0.5 block text-xs text-[var(--muted)]">
+                    해제하면 플레이오프 등으로 처리됩니다. 엔트리·승부예측·결과·ELO·맵/DB
+                    통계에는 그대로 포함됩니다.
+                  </span>
+                </span>
+              </label>
 
               <div>
                 <div className="mb-2 flex items-center justify-between">

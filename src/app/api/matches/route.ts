@@ -30,6 +30,7 @@ export async function GET() {
       round: match.round,
       scheduledAt: match.scheduledAt,
       status: match.status,
+      countsTowardStandings: match.countsTowardStandings,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       setCount: match.sets.length,
