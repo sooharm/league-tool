@@ -51,6 +51,8 @@ type EntryResponse = {
     week: number;
     round: number;
     scheduledAt: string | null;
+    countsTowardStandings?: boolean;
+    playoffRoundLabel?: string | null;
     homeTeam: TeamInfo;
     awayTeam: TeamInfo;
     sets: SetInfo[];
@@ -79,6 +81,18 @@ function formatDate(date: string | null) {
   if (!date) return "-";
   const value = new Date(date);
   return `${value.getMonth() + 1}/${value.getDate()}`;
+}
+
+function formatMatchMeta(match: {
+  week: number;
+  round: number;
+  scheduledAt: string | null;
+  playoffRoundLabel?: string | null;
+}) {
+  if (match.playoffRoundLabel) {
+    return `${match.playoffRoundLabel} · ${formatDate(match.scheduledAt)}`;
+  }
+  return `${match.week}주차 (${match.round}R) · ${formatDate(match.scheduledAt)}`;
 }
 
 function formatDateTime(date: string | null) {
@@ -558,9 +572,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
             {" vs "}
             <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
           </h3>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
-          </p>
+          <p className="mt-1 text-sm text-[var(--muted)]">{formatMatchMeta(match)}</p>
           {entry.publishedAt ? (
             <p className="mt-2 text-sm text-emerald-300">
               {formatDateTime(entry.publishedAt)} 공개
@@ -676,9 +688,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
           {" vs "}
           <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
         </h3>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {match.week}주차 ({match.round}R) · {formatDate(match.scheduledAt)}
-        </p>
+        <p className="mt-1 text-sm text-[var(--muted)]">{formatMatchMeta(match)}</p>
         <div className="mt-3 space-y-1 text-sm text-[var(--muted)]">
           <p>경기 당일 19:00(한국시간)에 엔트리가 자동 공개됩니다.</p>
           <p>각 팀의 팀장/부팀장만 엔트리를 수정·확정할 수 있습니다.</p>

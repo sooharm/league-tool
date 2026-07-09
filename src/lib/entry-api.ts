@@ -14,6 +14,7 @@ import {
   teamHasSixManEntryFromSlots,
   type EntryWithTeams,
 } from "@/lib/entry";
+import { getPlayoffRoundLabel } from "@/lib/playoff-bracket";
 import { prisma } from "@/lib/prisma";
 import type { Player } from "@prisma/client";
 
@@ -49,6 +50,30 @@ export async function loadEntryMatch(matchId: string) {
     where: { id: matchId },
     include: entryMatchInclude,
   });
+}
+
+export async function resolvePlayoffRoundLabelForMatch(match: {
+  id: string;
+  seasonId: string;
+  countsTowardStandings: boolean;
+  homeTeam: { name: string };
+  awayTeam: { name: string };
+}) {
+  if (match.countsTowardStandings) {
+    return null;
+  }
+
+  const seasonPlayoffMatches = await prisma.match.findMany({
+    where: { seasonId: match.seasonId, countsTowardStandings: false },
+    select: {
+      id: true,
+      scheduledAt: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  });
+
+  return getPlayoffRoundLabel(match, seasonPlayoffMatches);
 }
 
 export async function getOrCreateMatchEntry(matchId: string) {
@@ -124,6 +149,7 @@ export function buildEntryResponse({
   viewerTeamId,
   viewerRole,
   isAdmin = false,
+  playoffRoundLabel = null,
 }: {
   entry: {
     id: string;
@@ -139,6 +165,7 @@ export function buildEntryResponse({
     week: number;
     round: number;
     scheduledAt: Date | null;
+    countsTowardStandings?: boolean;
     homeTeamId: string;
     awayTeamId: string;
     homeTeam: {
@@ -164,6 +191,7 @@ export function buildEntryResponse({
   viewerTeamId: string | null;
   viewerRole: ActingRole;
   isAdmin?: boolean;
+  playoffRoundLabel?: string | null;
 }) {
   const ctx = toEntryContext(entry, match);
   const published = isPublished(ctx);
@@ -207,6 +235,8 @@ export function buildEntryResponse({
       week: match.week,
       round: match.round,
       scheduledAt: match.scheduledAt,
+      countsTowardStandings: match.countsTowardStandings !== false,
+      playoffRoundLabel,
       homeTeam: match.homeTeam,
       awayTeam: match.awayTeam,
       sets: entrySets,

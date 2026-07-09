@@ -4,6 +4,7 @@ import {
   ensureEntryAutoPublishedSideEffects,
   getOrCreateMatchEntry,
   loadEntryMatch,
+  resolvePlayoffRoundLabelForMatch,
   toEntryContext,
   upsertEntrySlots,
 } from "@/lib/entry-api";
@@ -46,6 +47,7 @@ export async function GET(_request: Request, context: RouteContext) {
       where: { entryId: activeEntry.id },
       include: { player: true },
     }));
+  const playoffRoundLabel = await resolvePlayoffRoundLabelForMatch(refreshed);
 
   return NextResponse.json(
     buildEntryResponse({
@@ -55,6 +57,7 @@ export async function GET(_request: Request, context: RouteContext) {
       viewerTeamId,
       viewerRole,
       isAdmin: auth?.isAdmin ?? false,
+      playoffRoundLabel,
     }),
   );
 }
@@ -132,6 +135,8 @@ export async function PUT(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "엔트리를 불러오지 못했습니다." }, { status: 500 });
   }
 
+  const playoffRoundLabel = await resolvePlayoffRoundLabelForMatch(updated);
+
   return NextResponse.json(
     buildEntryResponse({
       entry: updated.entry,
@@ -140,6 +145,7 @@ export async function PUT(request: Request, context: RouteContext) {
       viewerTeamId: teamId,
       viewerRole,
       isAdmin: authResult.isAdmin,
+      playoffRoundLabel,
     }),
   );
 }

@@ -149,6 +149,15 @@ export async function getSeasonRankingMatches(seasonId: string) {
   return matches.filter((match) => match.countsTowardStandings);
 }
 
+/** 플레이오프/결승 등 순위 미반영 경기 */
+export async function getSeasonPlayoffMatches(seasonId: string) {
+  return prisma.match.findMany({
+    where: { seasonId, countsTowardStandings: false },
+    include: matchInclude,
+    orderBy: [{ scheduledAt: "asc" }, { week: "asc" }],
+  });
+}
+
 export async function getScheduleMatches(seasonId: string) {
   const matches = await getSeasonMatches(seasonId);
   return matches.filter((match) => isVisibleOnScheduleTab(match));

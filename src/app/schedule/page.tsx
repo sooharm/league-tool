@@ -1,10 +1,11 @@
 import { EntrySubmitLink } from "@/components/EntryLinkIcon";
 import { PageShell } from "@/components/PageShell";
 import Link from "next/link";
-import { getActiveSeason, getScheduleMatches } from "@/lib/data";
+import { getActiveSeason, getScheduleMatches, getSeasonPlayoffMatches } from "@/lib/data";
 import { canManageSchedule, getAuthContext } from "@/lib/permissions";
 import { entryPublishContext, getSetEntryPlayers, isPublished } from "@/lib/entry";
 import { formatScheduleDate } from "@/lib/match-display";
+import { getPlayoffRoundLabel } from "@/lib/playoff-bracket";
 import { getTierBracketLabel } from "@/lib/standings";
 
 function formatEntryPlayer(player: { nickname: string; tier: number; race: string }) {
@@ -19,6 +20,7 @@ export default async function SchedulePage() {
   const season = await getActiveSeason();
   const auth = await getAuthContext();
   const matches = season ? await getScheduleMatches(season.id) : [];
+  const playoffMatches = season ? await getSeasonPlayoffMatches(season.id) : [];
 
   const grouped = matches.reduce<Record<number, typeof matches>>((acc, match) => {
     acc[match.week] ??= [];
@@ -63,6 +65,7 @@ export default async function SchedulePage() {
                             player: slot.player,
                           }))
                         : null;
+                    const playoffLabel = getPlayoffRoundLabel(match, playoffMatches);
 
                     return (
                       <article
@@ -70,15 +73,22 @@ export default async function SchedulePage() {
                         className="relative rounded-xl border border-[var(--card-border)] bg-[var(--card)] p-4 pb-12"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-lg font-bold">
-                            <span style={{ color: match.homeTeam.color }}>
-                              {match.homeTeam.name}
-                            </span>
-                            {" vs "}
-                            <span style={{ color: match.awayTeam.color }}>
-                              {match.awayTeam.name}
-                            </span>
-                          </p>
+                          <div>
+                            {playoffLabel ? (
+                              <p className="mb-1 text-xs font-semibold tracking-wide text-[var(--accent)]">
+                                {playoffLabel}
+                              </p>
+                            ) : null}
+                            <p className="text-lg font-bold">
+                              <span style={{ color: match.homeTeam.color }}>
+                                {match.homeTeam.name}
+                              </span>
+                              {" vs "}
+                              <span style={{ color: match.awayTeam.color }}>
+                                {match.awayTeam.name}
+                              </span>
+                            </p>
+                          </div>
                           <div className="text-sm text-[var(--muted)]">
                             {formatScheduleDate(match.scheduledAt)}
                           </div>

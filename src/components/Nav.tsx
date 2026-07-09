@@ -34,11 +34,19 @@ export async function Nav({
     <header className="border-b border-[var(--card-border)] bg-[var(--card)]">
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
-              {SITE_TITLE}
-            </h1>
-            <SeasonSwitcher seasons={seasons} selectedSlug={selectedSeasonSlug} />
+          <div className="flex flex-wrap items-start gap-3 sm:gap-4">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--foreground)] sm:text-3xl">
+                {SITE_TITLE}
+              </h1>
+              <SeasonSwitcher seasons={seasons} selectedSlug={selectedSeasonSlug} />
+            </div>
+            <Link
+              href="/playoff"
+              className="mt-0.5 inline-flex items-center rounded-xl border-2 border-amber-400/80 bg-amber-500/15 px-4 py-2 text-base font-bold tracking-wide text-amber-200 shadow-[0_0_24px_rgba(245,158,11,0.18)] transition hover:border-amber-300 hover:bg-amber-500/25 hover:text-amber-100 sm:mt-1 sm:px-5 sm:py-2.5 sm:text-lg"
+            >
+              플레이오프
+            </Link>
           </div>
           {isDevStaffBypassEnabled() ? (
             <span className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-200">
