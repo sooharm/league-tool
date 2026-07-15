@@ -32,18 +32,16 @@ export type PlayoffMatchupView = PlayoffMatchup & {
   sets: PlayoffSetRow[];
 };
 
-export type PlayoffBracketView = {
+export type FinalsBracketView = {
   title: string;
-  matchup: PlayoffMatchupView;
+  games: PlayoffMatchupView[];
 };
 
 const FINAL_HOME_NAME = "블로우잡";
-
-export const PLAYOFF_MATCHUP: PlayoffMatchup = {
-  id: "sf",
-  label: "플레이오프",
-  home: { kind: "team", name: "피나무라", color: "#60a5fa" },
-  away: { kind: "team", name: "언제나상한가", color: "#f87171" },
+const FINAL_HOME: PlayoffSlot = {
+  kind: "team",
+  name: FINAL_HOME_NAME,
+  color: "#fb923c",
 };
 
 export type PlayoffDbMatch = {
@@ -76,33 +74,48 @@ function teamName(slot: PlayoffSlot): string | null {
   return slot.kind === "team" ? slot.name : null;
 }
 
-function findPlayoffMatch(matches: PlayoffDbMatch[]): PlayoffDbMatch | undefined {
-  const homeName = teamName(PLAYOFF_MATCHUP.home);
-  const awayName = teamName(PLAYOFF_MATCHUP.away);
-  if (!homeName || !awayName) return undefined;
-
-  return matches.find(
-    (match) =>
-      (match.homeTeam.name === homeName && match.awayTeam.name === awayName) ||
-      (match.homeTeam.name === awayName && match.awayTeam.name === homeName),
+function involvesBlowjob(match: PlayoffDbMatch) {
+  return (
+    match.homeTeam.name === FINAL_HOME_NAME || match.awayTeam.name === FINAL_HOME_NAME
   );
 }
 
-function enrichMatchup(
-  matchup: PlayoffMatchup,
+function findFinalMatches(matches: PlayoffDbMatch[]): PlayoffDbMatch[] {
+  return [...matches]
+    .filter(involvesBlowjob)
+    .sort((a, b) => {
+      const aTime = a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const bTime = b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      return aTime - bTime;
+    })
+    .slice(0, 2);
+}
+
+function resolveAwaySlot(dbMatch: PlayoffDbMatch): PlayoffSlot {
+  const away =
+    dbMatch.homeTeam.name === FINAL_HOME_NAME ? dbMatch.awayTeam : dbMatch.homeTeam;
+  return { kind: "team", name: away.name, color: away.color };
+}
+
+function enrichFinalGame(
+  gameNumber: 1 | 2,
   dbMatch: PlayoffDbMatch | undefined,
+  awayFallback: PlayoffSlot,
 ): PlayoffMatchupView {
+  const label = `결승 ${gameNumber}차전`;
+  const template: PlayoffMatchup = {
+    id: `final-g${gameNumber}`,
+    label,
+    home: FINAL_HOME,
+    away: awayFallback,
+  };
+
   if (!dbMatch) {
-    return {
-      ...matchup,
-      matchId: null,
-      scheduledLabel: null,
-      sets: [],
-    };
+    return { ...template, matchId: null, scheduledLabel: null, sets: [] };
   }
 
-  const homeName = teamName(matchup.home);
-  const homeIsDbHome = homeName != null && dbMatch.homeTeam.name === homeName;
+  const homeName = teamName(FINAL_HOME);
+  const homeIsDbHome = dbMatch.homeTeam.name === homeName;
   const homeTeam = homeIsDbHome ? dbMatch.homeTeam : dbMatch.awayTeam;
   const awayTeam = homeIsDbHome ? dbMatch.awayTeam : dbMatch.homeTeam;
 
@@ -139,7 +152,7 @@ function enrichMatchup(
     });
 
   return {
-    ...matchup,
+    ...template,
     home: { kind: "team", name: homeTeam.name, color: homeTeam.color },
     away: { kind: "team", name: awayTeam.name, color: awayTeam.color },
     matchId: dbMatch.id,
@@ -149,17 +162,28 @@ function enrichMatchup(
   };
 }
 
-export function buildPlayoffBracketView(matches: PlayoffDbMatch[]): PlayoffBracketView {
-  const ordered = [...matches].sort((a, b) => {
-    const aTime = a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    const bTime = b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-    return aTime - bTime;
-  });
+/** @deprecated use buildFinalsBracketView */
+export type PlayoffBracketView = FinalsBracketView;
+
+export function buildFinalsBracketView(matches: PlayoffDbMatch[]): FinalsBracketView {
+  const finalMatches = findFinalMatches(matches);
+  const awayFromSchedule = finalMatches[0] ? resolveAwaySlot(finalMatches[0]) : null;
+  const awayFallback: PlayoffSlot =
+    awayFromSchedule ??
+    ({ kind: "placeholder", label: "플레이오프 승자" } satisfies PlayoffSlot);
 
   return {
-    title: "플레이오프",
-    matchup: enrichMatchup(PLAYOFF_MATCHUP, findPlayoffMatch(ordered)),
+    title: "결승",
+    games: [
+      enrichFinalGame(1, finalMatches[0], awayFallback),
+      enrichFinalGame(2, finalMatches[1], awayFallback),
+    ],
   };
+}
+
+/** @deprecated use buildFinalsBracketView */
+export function buildPlayoffBracketView(matches: PlayoffDbMatch[]): FinalsBracketView {
+  return buildFinalsBracketView(matches);
 }
 
 /**
@@ -186,11 +210,11 @@ export function getPlayoffRoundLabel(
 
   const home = match.homeTeam.name;
   const away = match.awayTeam.name;
-  const isPlayoff =
+  const isSemifinal =
     (home === "피나무라" && away === "언제나상한가") ||
     (home === "언제나상한가" && away === "피나무라");
 
-  if (isPlayoff) {
+  if (isSemifinal) {
     return "플레이오프";
   }
 
