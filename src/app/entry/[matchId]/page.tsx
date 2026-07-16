@@ -1,6 +1,6 @@
 import { EntryForm } from "@/components/EntryForm";
 import { PageShell } from "@/components/PageShell";
-import { getMatchForEntry, getSeasonPlayoffMatches } from "@/lib/data";
+import { getMatchForEntry, getSeasonMatches } from "@/lib/data";
 import { getPlayoffRoundLabel } from "@/lib/playoff-bracket";
 import { notFound } from "next/navigation";
 
@@ -17,10 +17,8 @@ export default async function EntryMatchPage({
   }
 
   const title = `${match.homeTeam.name} vs ${match.awayTeam.name}`;
-  const playoffMatches = !match.countsTowardStandings
-    ? await getSeasonPlayoffMatches(match.seasonId)
-    : [];
-  const playoffLabel = getPlayoffRoundLabel(match, playoffMatches);
+  const seasonMatches = await getSeasonMatches(match.seasonId);
+  const playoffLabel = getPlayoffRoundLabel(match, seasonMatches);
   const description = playoffLabel
     ? `${playoffLabel} · ${title}`
     : `${match.week}주차 · ${title}`;

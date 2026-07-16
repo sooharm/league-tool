@@ -1,11 +1,11 @@
 import { PageShell } from "@/components/PageShell";
 import { PlayoffBracket } from "@/components/PlayoffBracket";
-import { getActiveSeason, getSeasonPlayoffMatches } from "@/lib/data";
+import { getActiveSeason, getSeasonMatches } from "@/lib/data";
 import { buildFinalsBracketView } from "@/lib/playoff-bracket";
 
 export default async function PlayoffPage() {
   const season = await getActiveSeason();
-  const matches = season ? await getSeasonPlayoffMatches(season.id) : [];
+  const matches = season ? await getSeasonMatches(season.id) : [];
   const bracket = buildFinalsBracketView(matches);
 
   return (

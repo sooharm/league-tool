@@ -14,6 +14,7 @@ import {
   teamHasSixManEntryFromSlots,
   type EntryWithTeams,
 } from "@/lib/entry";
+import { getSeasonMatches } from "@/lib/data";
 import { getPlayoffRoundLabel } from "@/lib/playoff-bracket";
 import { prisma } from "@/lib/prisma";
 import type { Player } from "@prisma/client";
@@ -59,21 +60,8 @@ export async function resolvePlayoffRoundLabelForMatch(match: {
   homeTeam: { name: string };
   awayTeam: { name: string };
 }) {
-  if (match.countsTowardStandings) {
-    return null;
-  }
-
-  const seasonPlayoffMatches = await prisma.match.findMany({
-    where: { seasonId: match.seasonId, countsTowardStandings: false },
-    select: {
-      id: true,
-      scheduledAt: true,
-      homeTeam: { select: { name: true } },
-      awayTeam: { select: { name: true } },
-    },
-  });
-
-  return getPlayoffRoundLabel(match, seasonPlayoffMatches);
+  const seasonMatches = await getSeasonMatches(match.seasonId);
+  return getPlayoffRoundLabel(match, seasonMatches);
 }
 
 export async function getOrCreateMatchEntry(matchId: string) {

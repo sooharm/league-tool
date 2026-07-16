@@ -1,7 +1,7 @@
 import { EntrySubmitLink } from "@/components/EntryLinkIcon";
 import { PageShell } from "@/components/PageShell";
 import Link from "next/link";
-import { getActiveSeason, getScheduleMatches, getSeasonPlayoffMatches } from "@/lib/data";
+import { getActiveSeason, getScheduleMatches, getSeasonMatches } from "@/lib/data";
 import { canManageSchedule, getAuthContext } from "@/lib/permissions";
 import { entryPublishContext, getSetEntryPlayers, isPublished } from "@/lib/entry";
 import { formatScheduleDate } from "@/lib/match-display";
@@ -20,7 +20,7 @@ export default async function SchedulePage() {
   const season = await getActiveSeason();
   const auth = await getAuthContext();
   const matches = season ? await getScheduleMatches(season.id) : [];
-  const playoffMatches = season ? await getSeasonPlayoffMatches(season.id) : [];
+  const seasonMatches = season ? await getSeasonMatches(season.id) : [];
 
   const grouped = matches.reduce<Record<number, typeof matches>>((acc, match) => {
     acc[match.week] ??= [];
@@ -65,7 +65,7 @@ export default async function SchedulePage() {
                             player: slot.player,
                           }))
                         : null;
-                    const playoffLabel = getPlayoffRoundLabel(match, playoffMatches);
+                    const playoffLabel = getPlayoffRoundLabel(match, seasonMatches);
 
                     return (
                       <article

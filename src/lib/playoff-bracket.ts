@@ -53,6 +53,7 @@ const FINAL_HOME: PlayoffSlot = {
 export type PlayoffDbMatch = {
   id: string;
   scheduledAt: Date | null;
+  countsTowardStandings?: boolean;
   homeTeamId: string;
   awayTeamId: string;
   homeTeam: { name: string; color: string };
@@ -93,15 +94,61 @@ function involvesBlowjob(match: PlayoffDbMatch) {
   );
 }
 
-function findFinalMatches(matches: PlayoffDbMatch[]): PlayoffDbMatch[] {
-  return [...matches]
-    .filter(involvesBlowjob)
-    .sort((a, b) => {
-      const aTime = a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const bTime = b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return aTime - bTime;
-    })
-    .slice(0, 2);
+function sortByScheduledAt(a: PlayoffDbMatch, b: PlayoffDbMatch) {
+  const aTime = a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  const bTime = b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
+  return aTime - bTime;
+}
+
+function sameTeamPair(a: PlayoffDbMatch, b: PlayoffDbMatch) {
+  const teamIds = new Set([a.homeTeamId, a.awayTeamId]);
+  return teamIds.has(b.homeTeamId) && teamIds.has(b.awayTeamId);
+}
+
+function hasSetResults(match: PlayoffDbMatch) {
+  return match.sets.some((set) => set.result != null);
+}
+
+/** 시즌 전체 경기에서 결승 1·2차전을 날짜순으로 고릅니다. */
+export function pickFinalMatchesFromSeason(matches: PlayoffDbMatch[]): PlayoffDbMatch[] {
+  const playoffBlowjob = matches
+    .filter((match) => match.countsTowardStandings === false && involvesBlowjob(match))
+    .sort(sortByScheduledAt);
+
+  if (playoffBlowjob.length >= 2) {
+    return playoffBlowjob.slice(0, 2);
+  }
+
+  if (playoffBlowjob.length === 0) {
+    return [];
+  }
+
+  const game1 = playoffBlowjob[0]!;
+  const game1Time = game1.scheduledAt?.getTime() ?? 0;
+
+  const samePairing = matches
+    .filter((match) => match.id !== game1.id && sameTeamPair(match, game1))
+    .sort(sortByScheduledAt);
+
+  const game2 =
+    samePairing.find(
+      (match) =>
+        !hasSetResults(match) &&
+        match.scheduledAt != null &&
+        match.scheduledAt.getTime() >= game1Time,
+    ) ??
+    samePairing.find((match) => !hasSetResults(match)) ??
+    samePairing.find(
+      (match) =>
+        match.scheduledAt != null && match.scheduledAt.getTime() > game1Time,
+    ) ??
+    samePairing[0];
+
+  if (!game2) {
+    return [game1];
+  }
+
+  return [game1, game2].sort(sortByScheduledAt);
 }
 
 function resolveAwaySlot(dbMatch: PlayoffDbMatch): PlayoffSlot {
@@ -283,7 +330,7 @@ function enrichFinalGame(
 export type PlayoffBracketView = FinalsBracketView;
 
 export function buildFinalsBracketView(matches: PlayoffDbMatch[]): FinalsBracketView {
-  const finalMatches = findFinalMatches(matches);
+  const finalMatches = pickFinalMatchesFromSeason(matches);
   const awayFromSchedule = finalMatches[0] ? resolveAwaySlot(finalMatches[0]) : null;
   const awayFallback: PlayoffSlot =
     awayFromSchedule ??
@@ -314,13 +361,14 @@ export function getPlayoffRoundLabel(
     homeTeam: { name: string };
     awayTeam: { name: string };
   },
-  seasonPlayoffMatches: {
-    id: string;
-    scheduledAt: Date | null;
-    homeTeam: { name: string };
-    awayTeam: { name: string };
-  }[],
+  seasonMatches: PlayoffDbMatch[],
 ): string | null {
+  const finalMatches = pickFinalMatchesFromSeason(seasonMatches);
+  const finalIndex = finalMatches.findIndex((item) => item.id === match.id);
+  if (finalIndex >= 0) {
+    return `결승 ${finalIndex + 1}차전`;
+  }
+
   if (match.countsTowardStandings) {
     return null;
   }
@@ -333,23 +381,6 @@ export function getPlayoffRoundLabel(
 
   if (isSemifinal) {
     return "플레이오프";
-  }
-
-  const finalMatches = seasonPlayoffMatches
-    .filter(
-      (item) =>
-        item.homeTeam.name === FINAL_HOME_NAME ||
-        item.awayTeam.name === FINAL_HOME_NAME,
-    )
-    .sort((a, b) => {
-      const aTime = a.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      const bTime = b.scheduledAt?.getTime() ?? Number.MAX_SAFE_INTEGER;
-      return aTime - bTime;
-    });
-
-  const index = finalMatches.findIndex((item) => item.id === match.id);
-  if (index >= 0) {
-    return `결승 ${index + 1}차전`;
   }
 
   if (home === FINAL_HOME_NAME || away === FINAL_HOME_NAME) {
