@@ -24,7 +24,9 @@ function SetRows({ matchup }: { matchup: PlayoffMatchupView }) {
   if (matchup.sets.length === 0) {
     return (
       <p className="mt-6 text-center text-sm text-amber-100/50">
-        세트·맵이 등록되면 여기에 표시됩니다.
+        {matchup.setScore
+          ? "세트 결과가 없습니다."
+          : "세트·맵이 등록되면 여기에 표시됩니다."}
       </p>
     );
   }
@@ -44,7 +46,19 @@ function SetRows({ matchup }: { matchup: PlayoffMatchupView }) {
             {set.mapName ? (
               <span className="mr-2 text-amber-50/80">{set.mapName}</span>
             ) : null}
-            {set.homePlayerName || set.awayPlayerName ? (
+            {set.source === "result" ? (
+              <>
+                <span style={homeColor ? { color: homeColor } : undefined}>
+                  {set.homePlayerName}
+                </span>{" "}
+                <span className="text-amber-100/80">{set.homeLabel}</span>
+                <span className="mx-2 text-amber-200/40">vs</span>
+                <span style={awayColor ? { color: awayColor } : undefined}>
+                  {set.awayPlayerName}
+                </span>{" "}
+                <span className="text-amber-100/80">{set.awayLabel}</span>
+              </>
+            ) : set.homePlayerName || set.awayPlayerName ? (
               <>
                 <span style={homeColor ? { color: homeColor } : undefined}>
                   {set.homePlayerName ?? "미지정"}
@@ -65,6 +79,15 @@ function SetRows({ matchup }: { matchup: PlayoffMatchupView }) {
 }
 
 function FinalGameCard({ game }: { game: PlayoffMatchupView }) {
+  const homeColor = game.home.kind === "team" ? game.home.color : undefined;
+  const awayColor = game.away.kind === "team" ? game.away.color : undefined;
+  const winnerName =
+    game.winnerSide === "home" && game.home.kind === "team"
+      ? game.home.name
+      : game.winnerSide === "away" && game.away.kind === "team"
+        ? game.away.name
+        : null;
+
   return (
     <article className="relative overflow-hidden rounded-2xl border border-amber-400/30 bg-gradient-to-b from-amber-500/10 via-[var(--card)] to-black/30 px-5 py-8 shadow-[inset_0_1px_0_rgba(251,191,36,0.15)] sm:px-8 sm:py-10">
       <div
@@ -84,13 +107,31 @@ function FinalGameCard({ game }: { game: PlayoffMatchupView }) {
         <p className="min-w-0 flex-1 text-right">
           <SlotName slot={game.home} />
         </p>
-        <p className="shrink-0 text-xs font-bold tracking-[0.35em] text-amber-200/50 sm:text-sm">
-          VS
-        </p>
+        {game.setScore ? (
+          <p className="shrink-0 text-lg font-bold tabular-nums text-amber-50 sm:text-2xl">
+            <span style={homeColor ? { color: homeColor } : undefined}>
+              {game.setScore.home}
+            </span>
+            <span className="mx-1 text-amber-200/50">:</span>
+            <span style={awayColor ? { color: awayColor } : undefined}>
+              {game.setScore.away}
+            </span>
+          </p>
+        ) : (
+          <p className="shrink-0 text-xs font-bold tracking-[0.35em] text-amber-200/50 sm:text-sm">
+            VS
+          </p>
+        )}
         <p className="min-w-0 flex-1 text-left">
           <SlotName slot={game.away} />
         </p>
       </div>
+
+      {winnerName ? (
+        <p className="mt-4 text-center text-sm font-medium text-amber-300">
+          승리: {winnerName}
+        </p>
+      ) : null}
 
       <SetRows matchup={game} />
     </article>

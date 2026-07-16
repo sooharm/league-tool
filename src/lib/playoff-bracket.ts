@@ -4,7 +4,8 @@ import {
   isPublished,
   type EntrySlotPlayer,
 } from "@/lib/entry";
-import { formatScheduleDate } from "@/lib/match-display";
+import { formatScheduleDate, getMatchSetScore, getMatchWinner } from "@/lib/match-display";
+import type { MatchWithResults } from "@/lib/standings";
 import { getTierBracketLabel } from "@/lib/tier-brackets";
 
 export type PlayoffSlot =
@@ -24,11 +25,16 @@ export type PlayoffSetRow = {
   mapName: string | null;
   homePlayerName: string | null;
   awayPlayerName: string | null;
+  homeLabel: string | null;
+  awayLabel: string | null;
+  source: "result" | "entry" | "pending";
 };
 
 export type PlayoffMatchupView = PlayoffMatchup & {
   matchId: string | null;
   scheduledLabel: string | null;
+  setScore: { home: number; away: number } | null;
+  winnerSide: "home" | "away" | null;
   sets: PlayoffSetRow[];
 };
 
@@ -56,6 +62,13 @@ export type PlayoffDbMatch = {
     orderIndex: number;
     tierBracket: string;
     mapName: string | null;
+    result: {
+      winnerTeamId: string;
+      loserTeamId: string;
+      isForfeit: boolean;
+      winnerPlayer: { nickname: string };
+      loserPlayer: { nickname: string } | null;
+    } | null;
   }[];
   entry: {
     homeConfirmedAt: Date | null;
@@ -97,6 +110,56 @@ function resolveAwaySlot(dbMatch: PlayoffDbMatch): PlayoffSlot {
   return { kind: "team", name: away.name, color: away.color };
 }
 
+type SetResultSides = {
+  homePlayerName: string;
+  awayPlayerName: string;
+  homeLabel: string;
+  awayLabel: string;
+};
+
+function getSetResultSides(
+  result: NonNullable<PlayoffDbMatch["sets"][number]["result"]>,
+  dbMatch: PlayoffDbMatch,
+): SetResultSides {
+  const homeWon = result.winnerTeamId === dbMatch.homeTeamId;
+
+  if (result.isForfeit) {
+    return {
+      homePlayerName: homeWon ? result.winnerPlayer.nickname : "기권",
+      homeLabel: homeWon ? "기권승" : "기권",
+      awayPlayerName: homeWon ? "기권" : result.winnerPlayer.nickname,
+      awayLabel: homeWon ? "기권" : "기권승",
+    };
+  }
+
+  return {
+    homePlayerName: homeWon
+      ? result.winnerPlayer.nickname
+      : result.loserPlayer!.nickname,
+    homeLabel: homeWon ? "W" : "L",
+    awayPlayerName: homeWon
+      ? result.loserPlayer!.nickname
+      : result.winnerPlayer.nickname,
+    awayLabel: homeWon ? "L" : "W",
+  };
+}
+
+function orientSetSides(
+  sides: SetResultSides,
+  homeIsDbHome: boolean,
+): SetResultSides {
+  if (homeIsDbHome) {
+    return sides;
+  }
+
+  return {
+    homePlayerName: sides.awayPlayerName,
+    homeLabel: sides.awayLabel,
+    awayPlayerName: sides.homePlayerName,
+    awayLabel: sides.homeLabel,
+  };
+}
+
 function enrichFinalGame(
   gameNumber: 1 | 2,
   dbMatch: PlayoffDbMatch | undefined,
@@ -110,14 +173,25 @@ function enrichFinalGame(
     away: awayFallback,
   };
 
+  const emptyView: PlayoffMatchupView = {
+    ...template,
+    matchId: null,
+    scheduledLabel: null,
+    setScore: null,
+    winnerSide: null,
+    sets: [],
+  };
+
   if (!dbMatch) {
-    return { ...template, matchId: null, scheduledLabel: null, sets: [] };
+    return emptyView;
   }
 
   const homeName = teamName(FINAL_HOME);
-  const homeIsDbHome = dbMatch.homeTeam.name === homeName;
+  const homeIsDbHome = homeName != null && dbMatch.homeTeam.name === homeName;
   const homeTeam = homeIsDbHome ? dbMatch.homeTeam : dbMatch.awayTeam;
   const awayTeam = homeIsDbHome ? dbMatch.awayTeam : dbMatch.homeTeam;
+  const displayHomeTeamId = homeIsDbHome ? dbMatch.homeTeamId : dbMatch.awayTeamId;
+  const displayAwayTeamId = homeIsDbHome ? dbMatch.awayTeamId : dbMatch.homeTeamId;
 
   const published =
     dbMatch.entry && isPublished(entryPublishContext(dbMatch.entry, dbMatch))
@@ -133,8 +207,21 @@ function enrichFinalGame(
 
   const sets = [...dbMatch.sets]
     .sort((a, b) => a.orderIndex - b.orderIndex)
-    .filter((set) => set.tierBracket !== "ACE")
     .map((set) => {
+      if (set.result) {
+        const sides = orientSetSides(getSetResultSides(set.result, dbMatch), homeIsDbHome);
+        return {
+          orderIndex: set.orderIndex,
+          tierLabel: getTierBracketLabel(set.tierBracket),
+          mapName: set.mapName,
+          homePlayerName: sides.homePlayerName,
+          awayPlayerName: sides.awayPlayerName,
+          homeLabel: sides.homeLabel,
+          awayLabel: sides.awayLabel,
+          source: "result" as const,
+        };
+      }
+
       const players = published
         ? getSetEntryPlayers(set.id, dbMatch.homeTeamId, dbMatch.awayTeamId, published)
         : { home: null, away: null };
@@ -142,14 +229,42 @@ function enrichFinalGame(
       const homePlayer = homeIsDbHome ? players.home : players.away;
       const awayPlayer = homeIsDbHome ? players.away : players.home;
 
+      if (homePlayer || awayPlayer) {
+        return {
+          orderIndex: set.orderIndex,
+          tierLabel: getTierBracketLabel(set.tierBracket),
+          mapName: set.mapName,
+          homePlayerName: homePlayer?.nickname ?? null,
+          awayPlayerName: awayPlayer?.nickname ?? null,
+          homeLabel: null,
+          awayLabel: null,
+          source: "entry" as const,
+        };
+      }
+
       return {
         orderIndex: set.orderIndex,
         tierLabel: getTierBracketLabel(set.tierBracket),
         mapName: set.mapName,
-        homePlayerName: homePlayer?.nickname ?? null,
-        awayPlayerName: awayPlayer?.nickname ?? null,
+        homePlayerName: null,
+        awayPlayerName: null,
+        homeLabel: null,
+        awayLabel: null,
+        source: "pending" as const,
       };
     });
+
+  const completedSets = sets.filter((set) => set.source === "result");
+  const setsToShow = completedSets.length > 0 ? completedSets : sets;
+
+  const stats = dbMatch as unknown as MatchWithResults;
+  const hasScore = completedSets.length > 0;
+  const homeWins = hasScore ? getMatchSetScore(stats, displayHomeTeamId).wins : 0;
+  const awayWins = hasScore ? getMatchSetScore(stats, displayAwayTeamId).wins : 0;
+  const winnerTeamId = hasScore ? getMatchWinner(stats) : null;
+  let winnerSide: "home" | "away" | null = null;
+  if (winnerTeamId === displayHomeTeamId) winnerSide = "home";
+  if (winnerTeamId === displayAwayTeamId) winnerSide = "away";
 
   return {
     ...template,
@@ -158,7 +273,9 @@ function enrichFinalGame(
     matchId: dbMatch.id,
     scheduledLabel:
       dbMatch.scheduledAt != null ? formatScheduleDate(dbMatch.scheduledAt) : null,
-    sets,
+    setScore: hasScore ? { home: homeWins, away: awayWins } : null,
+    winnerSide,
+    sets: setsToShow,
   };
 }
 
