@@ -72,6 +72,7 @@ const FINAL_HOME: PlayoffSlot = {
 export type PlayoffDbMatch = {
   id: string;
   scheduledAt: Date | null;
+  week?: number;
   countsTowardStandings?: boolean;
   homeTeamId: string;
   awayTeamId: string;
@@ -128,6 +129,21 @@ function hasSetResults(match: PlayoffDbMatch) {
   return match.sets.some((set) => set.result != null);
 }
 
+function isAceOnlyDecider(match: PlayoffDbMatch) {
+  const completed = match.sets.filter((set) => set.result != null);
+  return completed.length > 0 && completed.every((set) => set.tierBracket === "ACE");
+}
+
+function championSlotFromGame(game: PlayoffMatchupView): PlayoffSlot | null {
+  const winner = getGameWinnerName(game);
+  if (!winner) {
+    return null;
+  }
+
+  const slot = winner === FINAL_HOME_NAME ? game.home : game.away;
+  return slot.kind === "team" ? slot : null;
+}
+
 /** 시즌 전체 경기에서 결승 1·2차전을 날짜순으로 고릅니다. */
 export function pickFinalMatchesFromSeason(matches: PlayoffDbMatch[]): PlayoffDbMatch[] {
   const playoffBlowjob = matches
@@ -144,6 +160,20 @@ export function pickFinalMatchesFromSeason(matches: PlayoffDbMatch[]): PlayoffDb
 
   const game1 = playoffBlowjob[0]!;
   const game1Time = game1.scheduledAt?.getTime() ?? 0;
+
+  const finalsPairing = matches
+    .filter(
+      (match) =>
+        involvesBlowjob(match) &&
+        sameTeamPair(match, game1) &&
+        hasSetResults(match) &&
+        (match.scheduledAt?.getTime() ?? 0) >= game1Time,
+    )
+    .sort(sortByScheduledAt);
+
+  if (finalsPairing.length >= 2) {
+    return finalsPairing.slice(-2);
+  }
 
   const samePairing = matches
     .filter((match) => match.id !== game1.id && sameTeamPair(match, game1))
@@ -177,9 +207,12 @@ export function pickSuperAceMatch(
 ): PlayoffDbMatch | null {
   const finalIds = new Set(finalGames.map((match) => match.id));
   const anchor = finalGames[0];
-  if (!anchor) {
+  if (!anchor || finalGames.length < 2) {
     return null;
   }
+
+  const lastFinal = finalGames[finalGames.length - 1]!;
+  const lastFinalTime = lastFinal.scheduledAt?.getTime() ?? 0;
 
   const candidates = matches
     .filter(
@@ -188,6 +221,18 @@ export function pickSuperAceMatch(
         involvesBlowjob(match) &&
         sameTeamPair(match, anchor),
     )
+    .filter((match) => {
+      if (!hasSetResults(match)) {
+        return false;
+      }
+
+      if (isAceOnlyDecider(match)) {
+        return true;
+      }
+
+      const matchTime = match.scheduledAt?.getTime() ?? 0;
+      return match.countsTowardStandings === false && matchTime > lastFinalTime;
+    })
     .sort(sortByScheduledAt);
 
   return candidates.at(-1) ?? null;
@@ -215,19 +260,19 @@ function resolveChampion(
   }
 
   if (game1Winner === game2Winner) {
-    const slot = game1Winner === FINAL_HOME_NAME ? game1.home : game1.away;
-    return slot.kind === "team" ? slot : null;
+    return championSlotFromGame(game1);
   }
 
-  if (!superAce) {
-    return null;
+  if (superAce) {
+    return {
+      kind: "team",
+      name: superAce.winnerTeamName,
+      color: superAce.winnerTeamColor,
+    };
   }
 
-  return {
-    kind: "team",
-    name: superAce.winnerTeamName,
-    color: superAce.winnerTeamColor,
-  };
+  // 1:1 동점 — 슈퍼에이스 별도 경기가 없으면 2차전 승자를 우승으로 표시
+  return championSlotFromGame(game2);
 }
 
 function computeSeriesRecord(
