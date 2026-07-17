@@ -41,6 +41,25 @@ export type PlayoffMatchupView = PlayoffMatchup & {
 export type FinalsBracketView = {
   title: string;
   games: PlayoffMatchupView[];
+  superAce: SuperAceView | null;
+  champion: PlayoffSlot | null;
+  seriesRecord: { blowjob: number; opponent: number } | null;
+  isComplete: boolean;
+};
+
+export type SuperAceView = {
+  matchId: string | null;
+  scheduledLabel: string | null;
+  mapName: string | null;
+  homePlayerName: string;
+  awayPlayerName: string;
+  homeLabel: string;
+  awayLabel: string;
+  winnerPlayerName: string;
+  winnerTeamName: string;
+  winnerTeamColor: string;
+  homeTeamColor: string;
+  awayTeamColor: string;
 };
 
 const FINAL_HOME_NAME = "블로우잡";
@@ -149,6 +168,122 @@ export function pickFinalMatchesFromSeason(matches: PlayoffDbMatch[]): PlayoffDb
   }
 
   return [game1, game2].sort(sortByScheduledAt);
+}
+
+/** 결승 1·2차전 이후 같은 대진의 슈퍼에이스결정전 경기 */
+export function pickSuperAceMatch(
+  matches: PlayoffDbMatch[],
+  finalGames: PlayoffDbMatch[],
+): PlayoffDbMatch | null {
+  const finalIds = new Set(finalGames.map((match) => match.id));
+  const anchor = finalGames[0];
+  if (!anchor) {
+    return null;
+  }
+
+  const candidates = matches
+    .filter(
+      (match) =>
+        !finalIds.has(match.id) &&
+        involvesBlowjob(match) &&
+        sameTeamPair(match, anchor),
+    )
+    .sort(sortByScheduledAt);
+
+  return candidates.at(-1) ?? null;
+}
+
+function getGameWinnerName(game: PlayoffMatchupView): string | null {
+  if (!game.winnerSide) {
+    return null;
+  }
+
+  const slot = game.winnerSide === "home" ? game.home : game.away;
+  return slot.kind === "team" ? slot.name : null;
+}
+
+function resolveChampion(
+  game1: PlayoffMatchupView,
+  game2: PlayoffMatchupView,
+  superAce: SuperAceView | null,
+): PlayoffSlot | null {
+  const game1Winner = getGameWinnerName(game1);
+  const game2Winner = getGameWinnerName(game2);
+
+  if (!game1Winner || !game2Winner) {
+    return null;
+  }
+
+  if (game1Winner === game2Winner) {
+    const slot = game1Winner === FINAL_HOME_NAME ? game1.home : game1.away;
+    return slot.kind === "team" ? slot : null;
+  }
+
+  if (!superAce) {
+    return null;
+  }
+
+  return {
+    kind: "team",
+    name: superAce.winnerTeamName,
+    color: superAce.winnerTeamColor,
+  };
+}
+
+function computeSeriesRecord(
+  game1: PlayoffMatchupView,
+  game2: PlayoffMatchupView,
+): { blowjob: number; opponent: number } | null {
+  let blowjob = 0;
+  let opponent = 0;
+
+  for (const game of [game1, game2]) {
+    const winner = getGameWinnerName(game);
+    if (winner === FINAL_HOME_NAME) {
+      blowjob += 1;
+    } else if (winner) {
+      opponent += 1;
+    }
+  }
+
+  if (blowjob + opponent === 0) {
+    return null;
+  }
+
+  return { blowjob, opponent };
+}
+
+function enrichSuperAce(dbMatch: PlayoffDbMatch | null): SuperAceView | null {
+  if (!dbMatch) {
+    return null;
+  }
+
+  const aceSet = dbMatch.sets.find((set) => set.tierBracket === "ACE" && set.result);
+  if (!aceSet?.result) {
+    return null;
+  }
+
+  const sides = getSetResultSides(aceSet.result, dbMatch);
+  const winnerTeam =
+    aceSet.result.winnerTeamId === dbMatch.homeTeamId
+      ? dbMatch.homeTeam
+      : dbMatch.awayTeam;
+
+  return {
+    matchId: dbMatch.id,
+    scheduledLabel:
+      dbMatch.scheduledAt != null ? formatScheduleDate(dbMatch.scheduledAt) : null,
+    mapName: aceSet.mapName,
+    homePlayerName: sides.homePlayerName,
+    awayPlayerName: sides.awayPlayerName,
+    homeLabel: sides.homeLabel,
+    awayLabel: sides.awayLabel,
+    winnerPlayerName: aceSet.result.winnerPlayer.nickname,
+    winnerTeamName: winnerTeam.name,
+    winnerTeamColor: winnerTeam.color,
+    homeTeamColor: dbMatch.homeTeam.color,
+    awayTeamColor: dbMatch.awayTeam.color,
+  };
 }
 
 function resolveAwaySlot(dbMatch: PlayoffDbMatch): PlayoffSlot {
@@ -336,12 +471,20 @@ export function buildFinalsBracketView(matches: PlayoffDbMatch[]): FinalsBracket
     awayFromSchedule ??
     ({ kind: "placeholder", label: "플레이오프 승자" } satisfies PlayoffSlot);
 
+  const game1 = enrichFinalGame(1, finalMatches[0], awayFallback);
+  const game2 = enrichFinalGame(2, finalMatches[1], awayFallback);
+  const superAce = enrichSuperAce(pickSuperAceMatch(matches, finalMatches));
+  const champion = resolveChampion(game1, game2, superAce);
+  const seriesRecord = computeSeriesRecord(game1, game2);
+  const isComplete = champion != null;
+
   return {
-    title: "결승",
-    games: [
-      enrichFinalGame(1, finalMatches[0], awayFallback),
-      enrichFinalGame(2, finalMatches[1], awayFallback),
-    ],
+    title: isComplete ? "우승" : "결승",
+    games: [game1, game2],
+    superAce,
+    champion,
+    seriesRecord,
+    isComplete,
   };
 }
 
@@ -367,6 +510,11 @@ export function getPlayoffRoundLabel(
   const finalIndex = finalMatches.findIndex((item) => item.id === match.id);
   if (finalIndex >= 0) {
     return `결승 ${finalIndex + 1}차전`;
+  }
+
+  const superAceMatch = pickSuperAceMatch(seasonMatches, finalMatches);
+  if (superAceMatch?.id === match.id) {
+    return "슈퍼에이스결정전";
   }
 
   if (match.countsTowardStandings) {

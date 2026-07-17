@@ -1,3 +1,4 @@
+import { ChampionshipNavLink } from "@/components/ChampionshipNavLink";
 import { DiscordAuthButton } from "@/components/DiscordAuthButton";
 import { SeasonSwitcher } from "@/components/SeasonSwitcher";
 import { auth } from "@/auth";
@@ -41,16 +42,7 @@ export async function Nav({
               </h1>
               <SeasonSwitcher seasons={seasons} selectedSlug={selectedSeasonSlug} />
             </div>
-            <Link
-              href="/playoff"
-              className="group relative mt-0.5 inline-flex items-center overflow-hidden rounded-2xl border-2 border-amber-300/90 bg-gradient-to-br from-amber-400/25 via-amber-600/20 to-amber-900/40 px-5 py-2.5 text-lg font-black tracking-wide text-amber-50 shadow-[0_0_32px_rgba(251,191,36,0.35),inset_0_1px_0_rgba(255,255,255,0.2)] transition hover:border-amber-200 hover:shadow-[0_0_48px_rgba(251,191,36,0.45)] sm:mt-1 sm:px-7 sm:py-3 sm:text-xl"
-            >
-              <span
-                className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition group-hover:opacity-100"
-                aria-hidden
-              />
-              <span className="relative">결승</span>
-            </Link>
+            <ChampionshipNavLink />
           </div>
           {isDevStaffBypassEnabled() ? (
             <span className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-200">

@@ -9,7 +9,14 @@ export default async function PlayoffPage() {
   const bracket = buildFinalsBracketView(matches);
 
   return (
-    <PageShell title="결승" description="시즌 결승전 — 목·금 1·2차전 대진입니다.">
+    <PageShell
+      title={bracket.isComplete ? "우승" : "결승"}
+      description={
+        bracket.isComplete && bracket.champion?.kind === "team"
+          ? `${bracket.champion.name} 시즌 우승을 축하합니다!`
+          : "시즌 결승전 — 목·금 1·2차전 대진입니다."
+      }
+    >
       <PlayoffBracket bracket={bracket} />
     </PageShell>
   );
