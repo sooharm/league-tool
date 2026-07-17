@@ -56,13 +56,21 @@ type MatchCard = {
   sets: SetCard[];
 };
 
+type PointsLeaderboardEntry = {
+  rank: number;
+  discordUserId: string;
+  displayName: string;
+  points: number;
+  isMe: boolean;
+};
+
 type PredictPayload = {
   loggedIn: boolean;
   previewMode?: boolean;
   usingPreviewFallback?: boolean;
   boardMode?: "results" | "upcoming" | "closed";
   points: number;
-  topPointsRanks: number[];
+  pointsLeaderboard: PointsLeaderboardEntry[];
   entryDayLabel: string | null;
   matches: MatchCard[];
 };
@@ -87,6 +95,51 @@ function betStatusLabel(status: string) {
 
 function playerLabel(player: PlayerInfo) {
   return `${player.nickname} (T${player.tier})`;
+}
+
+function PointsLeaderboardTable({ rows }: { rows: PointsLeaderboardEntry[] }) {
+  if (rows.length === 0) {
+    return (
+      <p className="text-sm text-[var(--muted)]">
+        아직 보유 포인트 기록이 없습니다. Discord 로그인 후 배팅에 참여해 보세요.
+      </p>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
+      <table className="min-w-full text-sm">
+        <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/50 text-left text-[var(--muted)]">
+          <tr>
+            <th className="px-4 py-3 font-medium">순위</th>
+            <th className="px-4 py-3 font-medium">닉네임</th>
+            <th className="px-4 py-3 text-right font-medium">보유 포인트</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr
+              key={row.discordUserId}
+              className={`border-b border-[var(--card-border)] last:border-b-0 transition ${
+                row.isMe ? "bg-[var(--accent)]/10" : "hover:bg-[var(--background)]/40"
+              }`}
+            >
+              <td className="px-4 py-3 text-[var(--muted)]">{row.rank}</td>
+              <td className="px-4 py-3 font-medium text-[var(--foreground)]">
+                {row.displayName}
+                {row.isMe ? (
+                  <span className="ml-2 text-xs font-normal text-[var(--accent)]">나</span>
+                ) : null}
+              </td>
+              <td className="px-4 py-3 text-right font-semibold tabular-nums text-[var(--accent)]">
+                {row.points} P
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 function CheckIcon() {
@@ -232,7 +285,10 @@ export function PredictBoard() {
   const [drafts, setDrafts] = useState<Record<string, { pickedPlayerId: string; stake: number }>>({});
 
   const applyPayload = useCallback((payload: PredictPayload) => {
-    setData(payload);
+    setData({
+      ...payload,
+      pointsLeaderboard: payload.pointsLeaderboard ?? [],
+    });
     setDrafts((current) => {
       const next = { ...current };
       for (const match of payload.matches) {
@@ -306,7 +362,7 @@ export function PredictBoard() {
         usingPreviewFallback: payload.usingPreviewFallback,
         boardMode: payload.boardMode,
         points: payload.points,
-        topPointsRanks: payload.topPointsRanks ?? [],
+        pointsLeaderboard: payload.pointsLeaderboard ?? [],
         entryDayLabel: payload.entryDayLabel,
         matches: payload.matches,
       });
@@ -329,6 +385,8 @@ export function PredictBoard() {
     return null;
   }
 
+  const isResultsBoard = data.boardMode === "results";
+
   return (
     <div className="space-y-5">
       {data.previewMode ? (
@@ -348,7 +406,12 @@ export function PredictBoard() {
           <div className="flex items-center gap-4">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">보유 포인트</p>
-              <p className="text-3xl font-bold text-[var(--accent)]">{data.points} P</p>
+              <p className="text-3xl font-bold text-[var(--accent)]">
+                {data.loggedIn ? `${data.points} P` : "—"}
+              </p>
+              {!data.loggedIn ? (
+                <p className="mt-1 text-xs text-[var(--muted)]">로그인 후 내 보유 포인트가 표시됩니다.</p>
+              ) : null}
             </div>
           </div>
           {data.entryDayLabel ? (
@@ -357,17 +420,6 @@ export function PredictBoard() {
             </p>
           ) : null}
         </div>
-        {data.topPointsRanks.length > 0 ? (
-          <div className="mt-3 space-y-1 border-t border-[var(--card-border)] pt-3 text-sm text-[var(--muted)]">
-            {data.topPointsRanks.map((points, index) => (
-              <p key={index}>
-                현재 누적포인트 {index + 1}위는{" "}
-                <span className="font-semibold text-[var(--foreground)]">{points}</span>
-                포인트입니다.
-              </p>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       {error ? <p className="text-sm text-red-300">{error}</p> : null}
@@ -382,14 +434,23 @@ export function PredictBoard() {
         </div>
       ) : null}
 
-      {data.matches.length === 0 ? (
+      {isResultsBoard ? (
+        <section className="rounded-xl border border-[var(--card-border)] bg-[var(--card)] px-5 py-4">
+          <header className="mb-4">
+            <h2 className="text-lg font-bold text-[var(--foreground)]">배팅 결과 · 보유포인트 순위</h2>
+            <p className="mt-1 text-sm text-[var(--muted)]">
+              현재 지갑에 남아 있는 포인트 기준 전체 순위입니다.
+            </p>
+          </header>
+          <PointsLeaderboardTable rows={data.pointsLeaderboard} />
+        </section>
+      ) : data.matches.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">
           표시할 경기가 없습니다. 일정이 등록되면 이곳에 표시됩니다.
         </p>
       ) : (
         <div className="space-y-5">
           {data.matches.map((match) => {
-            const isResultsBoard = data.boardMode === "results";
             const isClosedBoard = data.boardMode === "closed";
 
             return (
@@ -406,9 +467,7 @@ export function PredictBoard() {
                     <span className="mx-3 text-base font-normal text-[var(--muted)]">vs</span>
                     <span style={{ color: match.awayTeam.color }}>{match.awayTeam.name}</span>
                   </p>
-                  {isResultsBoard ? (
-                    <p className="mt-2 text-sm text-[var(--muted)]">경기 종료 · 배팅 결과</p>
-                  ) : isClosedBoard ? (
+                  {isClosedBoard ? (
                     <p className="mt-2 text-sm text-[var(--muted)]">배팅 마감 · 최종 배당</p>
                   ) : !match.predictionOpen ? (
                     <p className="mt-2 text-sm text-[var(--muted)]">
@@ -436,7 +495,6 @@ export function PredictBoard() {
                       set.myBet?.status === "LOST" ||
                       set.myBet?.status === "REFUNDED";
                     const canBet =
-                      !isResultsBoard &&
                       data.loggedIn &&
                       set.predictionOpen &&
                       set.playersReady &&
@@ -452,38 +510,7 @@ export function PredictBoard() {
                           ) : null}
                         </div>
 
-                        {isResultsBoard ? (
-                          <>
-                            {!set.playersReady ? (
-                              <p className="text-sm text-[var(--muted)]">엔트리 정보 없음</p>
-                            ) : (
-                              <div className="grid gap-3 sm:grid-cols-2">
-                                {set.homePlayer ? (
-                                  <PlayerDuelPanel
-                                    player={set.homePlayer}
-                                    teamColor={match.homeTeam.color}
-                                    oddsLabel={set.odds.homeLabel}
-                                    poolAmount={set.pools.home}
-                                    isWinner={set.winnerPlayer?.id === set.homePlayer.id}
-                                    isResultsMode
-                                    muted={set.winnerPlayer != null && set.winnerPlayer.id !== set.homePlayer.id}
-                                  />
-                                ) : null}
-                                {set.awayPlayer ? (
-                                  <PlayerDuelPanel
-                                    player={set.awayPlayer}
-                                    teamColor={match.awayTeam.color}
-                                    oddsLabel={set.odds.awayLabel}
-                                    poolAmount={set.pools.away}
-                                    isWinner={set.winnerPlayer?.id === set.awayPlayer.id}
-                                    isResultsMode
-                                    muted={set.winnerPlayer != null && set.winnerPlayer.id !== set.awayPlayer.id}
-                                  />
-                                ) : null}
-                              </div>
-                            )}
-                          </>
-                        ) : !set.playersPublished ? (
+                        {!set.playersPublished ? (
                           <p className="text-sm text-[var(--muted)]">
                             19:00 이후 선수 및 배당이 공개됩니다.
                           </p>

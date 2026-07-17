@@ -54,6 +54,65 @@ export async function getTopWalletPointsRanks(limit = 3): Promise<number[]> {
   }
 }
 
+export type WalletPointsLeaderboardEntry = {
+  rank: number;
+  discordUserId: string;
+  displayName: string;
+  points: number;
+  isMe: boolean;
+};
+
+export async function getWalletPointsLeaderboard(
+  viewerDiscordUserId?: string | null,
+): Promise<WalletPointsLeaderboardEntry[]> {
+  try {
+    const wallets = await prisma.discordWallet.findMany({
+      orderBy: [{ points: "desc" }, { discordUserId: "asc" }],
+      select: { discordUserId: true, points: true },
+    });
+
+    if (wallets.length === 0) {
+      return [];
+    }
+
+    const players = await prisma.player.findMany({
+      where: {
+        discordUserId: { in: wallets.map((wallet) => wallet.discordUserId) },
+      },
+      select: { discordUserId: true, nickname: true },
+    });
+
+    const nicknameByDiscord = new Map(
+      players
+        .filter((player): player is { discordUserId: string; nickname: string } => !!player.discordUserId)
+        .map((player) => [player.discordUserId, player.nickname]),
+    );
+
+    let rank = 0;
+    let previousPoints: number | null = null;
+
+    return wallets.map((wallet, index) => {
+      if (wallet.points !== previousPoints) {
+        rank = index + 1;
+        previousPoints = wallet.points;
+      }
+
+      return {
+        rank,
+        discordUserId: wallet.discordUserId,
+        displayName:
+          nicknameByDiscord.get(wallet.discordUserId) ??
+          `사용자 ${wallet.discordUserId.slice(-4)}`,
+        points: wallet.points,
+        isMe: wallet.discordUserId === viewerDiscordUserId,
+      };
+    });
+  } catch (error) {
+    console.error("[points] getWalletPointsLeaderboard failed:", error);
+    return [];
+  }
+}
+
 async function ensureWallet(tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0], discordUserId: string) {
   return tx.discordWallet.upsert({
     where: { discordUserId },
