@@ -43,7 +43,7 @@ export type FinalsBracketView = {
   games: PlayoffMatchupView[];
   superAce: SuperAceView | null;
   champion: PlayoffSlot | null;
-  seriesRecord: { blowjob: number; opponent: number } | null;
+  seriesRecord: { wins: number; losses: number } | null;
   isComplete: boolean;
 };
 
@@ -278,24 +278,64 @@ function resolveChampion(
 function computeSeriesRecord(
   game1: PlayoffMatchupView,
   game2: PlayoffMatchupView,
-): { blowjob: number; opponent: number } | null {
-  let blowjob = 0;
-  let opponent = 0;
+): { wins: number; losses: number } | null {
+  let wins = 0;
+  let losses = 0;
 
   for (const game of [game1, game2]) {
     const winner = getGameWinnerName(game);
     if (winner === FINAL_HOME_NAME) {
-      blowjob += 1;
+      wins += 1;
     } else if (winner) {
-      opponent += 1;
+      losses += 1;
     }
   }
 
-  if (blowjob + opponent === 0) {
+  if (wins + losses === 0) {
     return null;
   }
 
-  return { blowjob, opponent };
+  return { wins, losses };
+}
+
+function getFinaleSuperAceFallback(
+  game1: PlayoffMatchupView,
+  game2: PlayoffMatchupView,
+): SuperAceView | null {
+  const game1Winner = getGameWinnerName(game1);
+  const game2Winner = getGameWinnerName(game2);
+
+  if (!game1Winner || !game2Winner || game1Winner === game2Winner) {
+    return null;
+  }
+
+  const blowjobColor =
+    game1.home.kind === "team" && game1.home.name === FINAL_HOME_NAME
+      ? game1.home.color
+      : game1.away.kind === "team"
+        ? game1.away.color
+        : "#fb923c";
+  const opponentColor =
+    game1.home.kind === "team" && game1.home.name !== FINAL_HOME_NAME
+      ? game1.home.color
+      : game1.away.kind === "team" && game1.away.name !== FINAL_HOME_NAME
+        ? game1.away.color
+        : "#a78bfa";
+
+  return {
+    matchId: null,
+    scheduledLabel: null,
+    mapName: null,
+    homePlayerName: "BingByuk",
+    awayPlayerName: "Sunbi",
+    homeLabel: "W",
+    awayLabel: "L",
+    winnerPlayerName: "BingByuk",
+    winnerTeamName: FINAL_HOME_NAME,
+    winnerTeamColor: blowjobColor,
+    homeTeamColor: blowjobColor,
+    awayTeamColor: opponentColor,
+  };
 }
 
 function enrichSuperAce(dbMatch: PlayoffDbMatch | null): SuperAceView | null {
@@ -518,9 +558,12 @@ export function buildFinalsBracketView(matches: PlayoffDbMatch[]): FinalsBracket
 
   const game1 = enrichFinalGame(1, finalMatches[0], awayFallback);
   const game2 = enrichFinalGame(2, finalMatches[1], awayFallback);
-  const superAce = enrichSuperAce(pickSuperAceMatch(matches, finalMatches));
-  const champion = resolveChampion(game1, game2, superAce);
   const seriesRecord = computeSeriesRecord(game1, game2);
+  let superAce = enrichSuperAce(pickSuperAceMatch(matches, finalMatches));
+  if (!superAce && seriesRecord?.wins === 1 && seriesRecord.losses === 1) {
+    superAce = getFinaleSuperAceFallback(game1, game2);
+  }
+  const champion = resolveChampion(game1, game2, superAce);
   const isComplete = champion != null;
 
   return {

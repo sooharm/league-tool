@@ -193,11 +193,9 @@ function SuperAceCard({ superAce }: { superAce: SuperAceView }) {
 function ChampionBanner({
   champion,
   seriesRecord,
-  opponentName,
 }: {
   champion: Extract<PlayoffSlot, { kind: "team" }>;
-  seriesRecord: { blowjob: number; opponent: number } | null;
-  opponentName: string | null;
+  seriesRecord: { wins: number; losses: number } | null;
 }) {
   return (
     <div className="relative mx-auto max-w-3xl text-center">
@@ -213,10 +211,9 @@ function ChampionBanner({
       >
         🏆 {champion.name} 우승
       </p>
-      {seriesRecord && opponentName ? (
+      {seriesRecord ? (
         <p className="mt-4 text-sm text-amber-100/70 sm:text-base">
-          결승전 {seriesRecord.blowjob}승 {seriesRecord.opponent}승
-          {seriesRecord.blowjob === seriesRecord.opponent ? " · 슈퍼에이스결정전 승리" : ""}
+          결승전 {seriesRecord.wins}승 {seriesRecord.losses}패 · 슈퍼에이스결정전 승리
         </p>
       ) : null}
       <p className="mt-2 text-sm text-amber-100/50">축하합니다!</p>
@@ -228,7 +225,6 @@ export function PlayoffBracket({ bracket }: { bracket: FinalsBracketView }) {
   const [game1, game2] = bracket.games;
   const sharedHome = game1?.home.kind === "team" ? game1.home : null;
   const sharedAway = game1?.away.kind === "team" ? game1.away : game1?.away;
-  const opponentName = sharedAway?.kind === "team" ? sharedAway.name : null;
   const isChampion = bracket.isComplete && bracket.champion?.kind === "team";
 
   return (
@@ -267,7 +263,6 @@ export function PlayoffBracket({ bracket }: { bracket: FinalsBracketView }) {
           <ChampionBanner
             champion={bracket.champion}
             seriesRecord={bracket.seriesRecord}
-            opponentName={opponentName}
           />
         ) : (
           <>
