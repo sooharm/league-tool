@@ -1,14 +1,6 @@
-/** 로컬 개발에서만 Elo Board 노출 (배포 시 ENABLE_ELO_BOARD=true 로 명시적 허용) */
+/** 배포 포함 기본 노출. 끄려면 ENABLE_ELO_BOARD=false */
 export function isEloBoardEnabled(): boolean {
-  if (process.env.ENABLE_ELO_BOARD === "true") {
-    return true;
-  }
-
-  if (process.env.ENABLE_ELO_BOARD === "false") {
-    return false;
-  }
-
-  return process.env.NODE_ENV === "development";
+  return process.env.ENABLE_ELO_BOARD !== "false";
 }
 
 export const ELO_BOARD_OPTION_VALUE = "__elo_board__";

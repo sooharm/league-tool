@@ -1,14 +1,6 @@
-/** 로컬 개발에서만 Season5 미니게임 노출 (배포 시 ENABLE_SEASON5=true 로 명시적 허용) */
+/** 배포 포함 기본 노출. 끄려면 ENABLE_SEASON5=false */
 export function isSeason5Enabled(): boolean {
-  if (process.env.ENABLE_SEASON5 === "true") {
-    return true;
-  }
-
-  if (process.env.ENABLE_SEASON5 === "false") {
-    return false;
-  }
-
-  return process.env.NODE_ENV === "development";
+  return process.env.ENABLE_SEASON5 !== "false";
 }
 
 export const SEASON5_OPTION_VALUE = "__season5__";
