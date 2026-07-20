@@ -2,6 +2,10 @@ import { syncMatchSixManFromResults } from "@/lib/entry-api";
 import { entryPublishContext, getSetEntryPlayers, isPublished } from "@/lib/entry";
 import { ensureEntryAutoPublishedSideEffects } from "@/lib/entry-api";
 import {
+  applySetResultEloBySetId,
+  revertSetResultEloBySetId,
+} from "@/features/elo/calculator";
+import {
   FORFEIT_PLAYER_VALUE,
   isForfeitPlayerValue,
   resolveMatchStatusAfterSave,
@@ -196,6 +200,8 @@ export async function validateAndSaveResults(
       const winnerTeamId = resolvedWinnerSide === "home" ? match.homeTeamId : match.awayTeamId;
       const loserTeamId = resolvedWinnerSide === "home" ? match.awayTeamId : match.homeTeamId;
 
+      await revertSetResultEloBySetId(result.setId);
+
       await prisma.setResult.upsert({
         where: { setId: result.setId },
         create: {
@@ -236,6 +242,8 @@ export async function validateAndSaveResults(
     const winnerTeamId = winnerSide === "home" ? match.homeTeamId : match.awayTeamId;
     const loserTeamId = winnerSide === "home" ? match.awayTeamId : match.homeTeamId;
 
+    await revertSetResultEloBySetId(result.setId);
+
     await prisma.setResult.upsert({
       where: { setId: result.setId },
       create: {
@@ -257,6 +265,7 @@ export async function validateAndSaveResults(
       },
     });
     await settleSetPredictions(result.setId);
+    await applySetResultEloBySetId(result.setId);
   }
 
   const refreshed = await loadMatchForResults(matchId);
@@ -331,6 +340,8 @@ export async function removeAceSet(matchId: string, setId: string) {
   if (set.tierBracket !== "ACE") {
     throw new Error("NOT_ACE_SET");
   }
+
+  await revertSetResultEloBySetId(setId);
 
   await prisma.set.delete({ where: { id: setId } });
 

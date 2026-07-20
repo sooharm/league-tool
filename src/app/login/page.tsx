@@ -3,6 +3,7 @@ import { DiscordIdCopy } from "@/components/DiscordIdCopy";
 import { PageShell } from "@/components/PageShell";
 import { auth } from "@/auth";
 import { getWalletPoints } from "@/lib/points";
+import { PRO_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 
 export default async function LoginPage() {
@@ -42,7 +43,7 @@ export default async function LoginPage() {
           </>
         )}
         <Link
-          href="/"
+          href={PRO_ROUTES.root}
           className="inline-block text-sm text-[var(--muted)] transition hover:text-[var(--accent)]"
         >
           ← 메인으로

@@ -8,6 +8,7 @@ import {
 } from "@/lib/results";
 import { getTierBracketLabel } from "@/lib/standings";
 import type { Race } from "@prisma/client";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -361,7 +362,7 @@ export function ResultForm({ matchId }: { matchId: string }) {
 
   return (
     <div className="space-y-6">
-      <Link href="/results" className="inline-block text-sm text-[var(--accent)] hover:underline">
+      <Link href={SEASON4_ROUTES.results} className="inline-block text-sm text-[var(--accent)] hover:underline">
         ← 경기결과 목록
       </Link>
 

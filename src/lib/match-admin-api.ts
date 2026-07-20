@@ -1,4 +1,5 @@
-import { getSelectedSeason } from "@/lib/data";
+import { getSeasonBySlug, getSelectedSeason } from "@/lib/data";
+import { DEFAULT_PRO_LEAGUE_SEASON_SLUG } from "@/lib/season-selection";
 import {
   defaultSets,
   type MatchAdminInput,
@@ -23,8 +24,21 @@ export async function getActiveSeasonForMatchAdmin() {
     return null;
   }
 
+  return getSeasonForMatchAdmin(season.id);
+}
+
+export async function getSeason4ForMatchAdmin() {
+  const season = await getSeasonBySlug(DEFAULT_PRO_LEAGUE_SEASON_SLUG);
+  if (!season) {
+    return null;
+  }
+
+  return getSeasonForMatchAdmin(season.id);
+}
+
+async function getSeasonForMatchAdmin(seasonId: string) {
   return prisma.season.findUnique({
-    where: { id: season.id },
+    where: { id: seasonId },
     include: {
       teams: {
         orderBy: { sortOrder: "asc" },

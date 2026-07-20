@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>선택지 에디터 — 나무클랜배 스타리그</title>
+  <style>
+    :root {
+      --bg: #0f1218;
+      --bg-elevated: #161b24;
+      --card: #1c2330;
+      --card-border: #2a3444;
+      --card-hover: #222b3a;
+      --text: #e8edf5;
+      --muted: #8b97ab;
+      --accent: #5b9fd4;
+      --accent-soft: rgba(91, 159, 212, 0.15);
+      --danger: #e85d5d;
+      --danger-soft: rgba(232, 93, 93, 0.12);
+      --danger-border: rgba(232, 93, 93, 0.45);
+      --ok: #5dcb8a;
+      --input-bg: #12171f;
+      --radius: 12px;
+      --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      --zerg: #9b7ed9;
+      --terran: #d4a05b;
+      --protoss: #5bc4c0;
+      --subcard: #151b26;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      line-height: 1.5;
+    }
+
+    body {
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, rgba(91, 159, 212, 0.12), transparent),
+        var(--bg);
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+
+    header.top {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    header.top h1 {
+      margin: 0 0 6px;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header.top p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button, .file-btn {
+      appearance: none;
+      border: 1px solid var(--card-border);
+      background: var(--card);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    button:hover, .file-btn:hover {
+      background: var(--card-hover);
+      border-color: var(--accent);
+    }
+
+    button:active, .file-btn:active {
+      transform: translateY(1px);
+    }
+
+    button.primary {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: #b8dbf5;
+    }
+
+    button.danger {
+      background: var(--danger-soft);
+      border-color: var(--danger-border);
+      color: #f0a0a0;
+    }
+
+    .file-btn {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .file-btn input { display: none; }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 24px;
+      padding: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .tabs button {
+      border: none;
+      background: transparent;
+      padding: 10px 20px;
+      border-radius: 10px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .tabs button:hover {
+      color: var(--text);
+      background: transparent;
+      border-color: transparent;
+    }
+
+    .tabs button.active {
+      background: var(--accent-soft);
+      color: #c5e2f7;
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .race-block { margin-bottom: 28px; }
+    .race-block:last-child { margin-bottom: 0; }
+
+    .race-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 14px;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .race-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .race-block[data-race="zerg"] .race-dot { background: var(--zerg); }
+    .race-block[data-race="terran"] .race-dot { background: var(--terran); }
+    .race-block[data-race="protoss"] .race-dot { background: var(--protoss); }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 900px) {
+      .player-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+
+    .player-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .player-card.invalid {
+      border-color: var(--danger-border);
+      box-shadow: 0 0 0 1px var(--danger-border), var(--shadow);
+    }
+
+    .player-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .player-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--input-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    .error-msg {
+      display: none;
+      margin: 0 0 12px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      background: var(--danger-soft);
+      border: 1px solid var(--danger-border);
+      color: #f0a8a8;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .player-card.invalid .error-msg,
+    .sub-block.invalid .error-msg {
+      display: block;
+    }
+
+    .field-block { margin-bottom: 14px; }
+
+    .field-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .section-label {
+      margin: 4px 0 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #c5d0e0;
+    }
+
+    .choice-block {
+      margin-bottom: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      background: rgba(0, 0, 0, 0.15);
+    }
+
+    .choice-block:last-child { margin-bottom: 0; }
+
+    .choice-row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    @media (min-width: 520px) {
+      .choice-row.has-type {
+        grid-template-columns: 1fr 140px;
+        align-items: center;
+        gap: 10px;
+      }
+    }
+
+    textarea.result-area {
+      min-height: 64px;
+    }
+
+    .sub-block {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      background: var(--subcard);
+    }
+
+    .sub-block.invalid {
+      border-color: var(--danger-border);
+    }
+
+    .sub-block .section-label {
+      margin-top: 0;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--card-border);
+      background: var(--input-bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 72px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+
+    input[type="text"]::placeholder,
+    textarea::placeholder {
+      color: #5a6578;
+    }
+
+    select { cursor: pointer; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 12px 18px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 50;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast.ok {
+      border-color: rgba(93, 203, 138, 0.45);
+      color: #a8e4c0;
+    }
+
+    .toast.err {
+      border-color: var(--danger-border);
+      color: #f0a8a8;
+    }
+
+    .status-bar {
+      margin-top: 20px;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .hint {
+      margin: 0 0 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>선택지 에디터</h1>
+        <p>나무클랜 개인리그 미니게임 — 종족별 상대 A/B · 결과 Type · 현재상황</p>
+      </div>
+      <div class="actions">
+        <button type="button" class="primary" id="btnSave">JSON 저장(다운로드)</button>
+        <label class="file-btn">
+          JSON 불러오기
+          <input type="file" id="fileLoad" accept="application/json,.json" />
+        </label>
+        <button type="button" class="danger" id="btnReset">전체 초기화</button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="active" data-tab="round32" role="tab">32강</button>
+      <button type="button" data-tab="round16" role="tab">16강</button>
+      <button type="button" data-tab="round8" role="tab">8강</button>
+    </nav>
+
+    <section id="panel-round32" class="panel active" role="tabpanel"></section>
+    <section id="panel-round16" class="panel" role="tabpanel"></section>
+    <section id="panel-round8" class="panel" role="tabpanel"></section>
+
+    <p class="status-bar" id="statusBar"></p>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      const RACES = [
+        { key: "zerg", label: "저그" },
+        { key: "terran", label: "테란" },
+        { key: "protoss", label: "프로토스" },
+      ];
+
+      const PLAYERS = [
+        { key: "playerA", label: "상대 A" },
+        { key: "playerB", label: "상대 B" },
+      ];
+
+      const TYPE_LABELS = {
+        win: "승리",
+        lose: "패배",
+        good: "유리",
+        bad: "불리",
+      };
+
+      const CONFIG = {
+        round32: {
+          label: "32강",
+          choiceCount: 3,
+          types: ["win", "lose"],
+          rule: { win: 2, lose: 1 },
+          ruleText: "승리×2, 패배×1",
+          hasFollowUps: false,
+        },
+        round16: {
+          label: "16강",
+          choiceCount: 4,
+          types: ["win", "lose"],
+          rule: { win: 2, lose: 2 },
+          ruleText: "승리×2, 패배×2",
+          hasFollowUps: false,
+        },
+        round8: {
+          label: "8강",
+          choiceCount: 4,
+          types: ["lose", "good", "bad"],
+          rule: { lose: 2, good: 1, bad: 1 },
+          ruleText: "패배×2, 유리×1, 불리×1",
+          hasFollowUps: true,
+          goodFollowUp: {
+            label: "유리 후속 선택지",
+            hint: "유리 선택 시 — 4개 중 승리 2 / 패배 2",
+            choiceCount: 4,
+            types: ["win", "lose"],
+            rule: { win: 2, lose: 2 },
+            ruleText: "승리×2, 패배×2",
+          },
+          badFollowUp: {
+            label: "불리 후속 선택지",
+            hint: "불리 선택 시 — 4개 중 승리 1 / 패배 3",
+            choiceCount: 4,
+            types: ["win", "lose"],
+            rule: { win: 1, lose: 3 },
+            ruleText: "승리×1, 패배×3",
+          },
+        },
+      };
+
+      const state = {
+        round32: null,
+        round16: null,
+        round8: null,
+      };
+
+      function defaultType(types) {
+        return types[0];
+      }
+
+      function emptyChoice(types) {
+        return { text: "", type: defaultType(types), result: "" };
+      }
+
+      function emptyChoices(count, types) {
+        return Array.from({ length: count }, function () {
+          return emptyChoice(types);
+        });
+      }
+
+      function emptyPlayer(cfg) {
+        const player = {
+          name: "",
+          situation: "",
+          choices: emptyChoices(cfg.choiceCount, cfg.types),
+        };
+        if (cfg.hasFollowUps) {
+          player.goodFollowUp = {
+            choices: emptyChoices(
+              cfg.goodFollowUp.choiceCount,
+              cfg.goodFollowUp.types
+            ),
+          };
+          player.badFollowUp = {
+            choices: emptyChoices(
+              cfg.badFollowUp.choiceCount,
+              cfg.badFollowUp.types
+            ),
+          };
+        }
+        return player;
+      }
+
+      function emptyRace(cfg) {
+        return {
+          playerA: emptyPlayer(cfg),
+          playerB: emptyPlayer(cfg),
+        };
+      }
+
+      function emptyRound(cfg) {
+        return {
+          zerg: emptyRace(cfg),
+          terran: emptyRace(cfg),
+          protoss: emptyRace(cfg),
+        };
+      }
+
+      function initState() {
+        for (const key of Object.keys(CONFIG)) {
+          state[key] = emptyRound(CONFIG[key]);
+        }
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      function countTypes(choices) {
+        const counts = { win: 0, lose: 0, good: 0, bad: 0 };
+        for (const choice of choices) {
+          const t = choice.type || "win";
+          if (counts[t] !== undefined) counts[t] += 1;
+        }
+        return counts;
+      }
+
+      function validateAgainstRule(choices, rule) {
+        const counts = countTypes(choices);
+        const parts = [];
+        let ok = true;
+        for (const key of Object.keys(rule)) {
+          const actual = counts[key] || 0;
+          const expected = rule[key];
+          if (actual !== expected) ok = false;
+          parts.push(
+            (TYPE_LABELS[key] || key) + " " + actual + "/" + expected
+          );
+        }
+        return {
+          ok: ok,
+          message: ok ? "" : "Type 조건 불일치: " + parts.join(", "),
+        };
+      }
+
+      function validatePlayer(roundKey, player) {
+        const cfg = CONFIG[roundKey];
+        const errors = [];
+        const main = validateAgainstRule(player.choices, cfg.rule);
+        if (!main.ok) errors.push("기본 선택지 — " + main.message);
+
+        if (cfg.hasFollowUps) {
+          const good = validateAgainstRule(
+            player.goodFollowUp.choices,
+            cfg.goodFollowUp.rule
+          );
+          if (!good.ok) errors.push("유리 후속 — " + good.message);
+
+          const bad = validateAgainstRule(
+            player.badFollowUp.choices,
+            cfg.badFollowUp.rule
+          );
+          if (!bad.ok) errors.push("불리 후속 — " + bad.message);
+        }
+
+        return {
+          ok: errors.length === 0,
+          message: errors.join(" / "),
+          mainOk: main.ok,
+          goodOk: cfg.hasFollowUps
+            ? validateAgainstRule(
+                player.goodFollowUp.choices,
+                cfg.goodFollowUp.rule
+              ).ok
+            : true,
+          badOk: cfg.hasFollowUps
+            ? validateAgainstRule(
+                player.badFollowUp.choices,
+                cfg.badFollowUp.rule
+              ).ok
+            : true,
+        };
+      }
+
+      function renderTypeSelect(id, types, selected, attrs) {
+        let html =
+          '<select id="' +
+          id +
+          '" ' +
+          attrs +
+          ">";
+        types.forEach(function (opt) {
+          const sel = selected === opt ? " selected" : "";
+          html +=
+            '<option value="' +
+            opt +
+            '"' +
+            sel +
+            ">" +
+            TYPE_LABELS[opt] +
+            "</option>";
+        });
+        html += "</select>";
+        return html;
+      }
+
+      function renderChoiceRows(roundKey, raceKey, playerKey, branch, choices, types) {
+        let html = "";
+        choices.forEach(function (choice, choiceIndex) {
+          const baseId = [
+            roundKey,
+            raceKey,
+            playerKey,
+            branch,
+            choiceIndex,
+          ].join("-");
+          const commonAttrs =
+            'data-round="' +
+            roundKey +
+            '" data-race="' +
+            raceKey +
+            '" data-player="' +
+            playerKey +
+            '" data-branch="' +
+            branch +
+            '" data-choice="' +
+            choiceIndex +
+            '"';
+
+          html += '<div class="choice-block">';
+          html += '<div class="choice-row has-type">';
+          html += "<div>";
+          html +=
+            '<label class="field-label" for="' +
+            baseId +
+            '">선택지 ' +
+            (choiceIndex + 1) +
+            "</label>";
+          html +=
+            '<input type="text" id="' +
+            baseId +
+            '" ' +
+            commonAttrs +
+            ' data-field="text" placeholder="선택지 내용을 입력하세요" value="' +
+            escapeHtml(choice.text || "") +
+            '" />';
+          html += "</div><div>";
+          html +=
+            '<label class="field-label" for="' +
+            baseId +
+            '-type">결과 Type</label>';
+          html += renderTypeSelect(
+            baseId + "-type",
+            types,
+            choice.type || defaultType(types),
+            commonAttrs + ' data-field="type"'
+          );
+          html += "</div></div>";
+
+          html +=
+            '<label class="field-label" for="' +
+            baseId +
+            '-result">결과지</label>';
+          html +=
+            '<textarea id="' +
+            baseId +
+            '-result" class="result-area" ' +
+            commonAttrs +
+            ' data-field="result" placeholder="이 선택지를 골랐을 때 보여줄 결과 설명 (예: 승리한 이유)">' +
+            escapeHtml(choice.result || "") +
+            "</textarea>";
+          html += "</div>";
+        });
+        return html;
+      }
+
+      function renderPanel(roundKey) {
+        const cfg = CONFIG[roundKey];
+        const panel = document.getElementById("panel-" + roundKey);
+        const roundData = state[roundKey];
+        let html =
+          '<p class="hint">' +
+          cfg.label +
+          " 규칙: " +
+          cfg.ruleText +
+          (cfg.hasFollowUps
+            ? " · 유리/불리 선택 시 후속 선택지로 이동"
+            : "") +
+          "</p>";
+
+        RACES.forEach(function (race) {
+          html +=
+            '<div class="race-block" data-race="' + race.key + '">';
+          html +=
+            '<h2 class="race-title"><span class="race-dot" aria-hidden="true"></span>' +
+            race.label +
+            "</h2>";
+          html += '<div class="player-grid">';
+
+          PLAYERS.forEach(function (playerMeta) {
+            const player = roundData[race.key][playerMeta.key];
+            const validation = validatePlayer(roundKey, player);
+            const invalidClass = validation.ok ? "" : " invalid";
+
+            html +=
+              '<article class="player-card' +
+              invalidClass +
+              '">';
+            html += '<div class="player-head">';
+            html += "<h3>" + playerMeta.label + "</h3>";
+            html +=
+              '<span class="badge">선택지 ' +
+              cfg.choiceCount +
+              "개</span>";
+            html += "</div>";
+
+            if (!validation.ok) {
+              html +=
+                '<p class="error-msg">' +
+                escapeHtml(validation.message) +
+                "</p>";
+            }
+
+            const nameId =
+              roundKey + "-" + race.key + "-" + playerMeta.key + "-name";
+            const sitId =
+              roundKey +
+              "-" +
+              race.key +
+              "-" +
+              playerMeta.key +
+              "-situation";
+            const metaAttrs =
+              'data-round="' +
+              roundKey +
+              '" data-race="' +
+              race.key +
+              '" data-player="' +
+              playerMeta.key +
+              '"';
+
+            html += '<div class="field-block">';
+            html +=
+              '<label class="field-label" for="' +
+              nameId +
+              '">선수 이름</label>';
+            html +=
+              '<input type="text" id="' +
+              nameId +
+              '" ' +
+              metaAttrs +
+              ' data-field="name" placeholder="선수 이름 입력" value="' +
+              escapeHtml(player.name || "") +
+              '" />';
+            html += "</div>";
+
+            html += '<div class="field-block">';
+            html +=
+              '<label class="field-label" for="' +
+              sitId +
+              '">현재상황</label>';
+            html +=
+              '<textarea id="' +
+              sitId +
+              '" ' +
+              metaAttrs +
+              ' data-field="situation" placeholder="현재 상황 설명을 입력하세요">' +
+              escapeHtml(player.situation || "") +
+              "</textarea>";
+            html += "</div>";
+
+            html +=
+              '<p class="section-label">기본 선택지 (' +
+              cfg.ruleText +
+              ")</p>";
+            html += renderChoiceRows(
+              roundKey,
+              race.key,
+              playerMeta.key,
+              "main",
+              player.choices,
+              cfg.types
+            );
+
+            if (cfg.hasFollowUps) {
+              html +=
+                '<div class="sub-block' +
+                (validation.goodOk ? "" : " invalid") +
+                '">';
+              html +=
+                '<p class="section-label">' +
+                cfg.goodFollowUp.label +
+                "</p>";
+              html +=
+                '<p class="hint">' + cfg.goodFollowUp.hint + "</p>";
+              if (!validation.goodOk) {
+                html +=
+                  '<p class="error-msg">' +
+                  escapeHtml(
+                    validateAgainstRule(
+                      player.goodFollowUp.choices,
+                      cfg.goodFollowUp.rule
+                    ).message
+                  ) +
+                  "</p>";
+              }
+              html += renderChoiceRows(
+                roundKey,
+                race.key,
+                playerMeta.key,
+                "goodFollowUp",
+                player.goodFollowUp.choices,
+                cfg.goodFollowUp.types
+              );
+              html += "</div>";
+
+              html +=
+                '<div class="sub-block' +
+                (validation.badOk ? "" : " invalid") +
+                '">';
+              html +=
+                '<p class="section-label">' +
+                cfg.badFollowUp.label +
+                "</p>";
+              html += '<p class="hint">' + cfg.badFollowUp.hint + "</p>";
+              if (!validation.badOk) {
+                html +=
+                  '<p class="error-msg">' +
+                  escapeHtml(
+                    validateAgainstRule(
+                      player.badFollowUp.choices,
+                      cfg.badFollowUp.rule
+                    ).message
+                  ) +
+                  "</p>";
+              }
+              html += renderChoiceRows(
+                roundKey,
+                race.key,
+                playerMeta.key,
+                "badFollowUp",
+                player.badFollowUp.choices,
+                cfg.badFollowUp.types
+              );
+              html += "</div>";
+            }
+
+            html += "</article>";
+          });
+
+          html += "</div></div>";
+        });
+
+        panel.innerHTML = html;
+        updateStatus();
+      }
+
+      function renderAll() {
+        for (const key of Object.keys(CONFIG)) {
+          renderPanel(key);
+        }
+      }
+
+      function updateStatus() {
+        let errors = 0;
+        for (const roundKey of Object.keys(CONFIG)) {
+          RACES.forEach(function (race) {
+            PLAYERS.forEach(function (playerMeta) {
+              const player = state[roundKey][race.key][playerMeta.key];
+              if (!validatePlayer(roundKey, player).ok) errors += 1;
+            });
+          });
+        }
+
+        const el = document.getElementById("statusBar");
+        if (errors > 0) {
+          el.textContent =
+            "검증: " +
+            errors +
+            "개 상대에서 Type 조건이 맞지 않습니다.";
+          el.style.color = "#f0a8a8";
+        } else {
+          el.textContent =
+            "검증: 모든 라운드·종족·상대 Type 조건이 충족되었습니다.";
+          el.style.color = "var(--ok)";
+        }
+      }
+
+      function showToast(message, type) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.className = "toast show " + (type || "");
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(function () {
+          toast.classList.remove("show");
+        }, 2200);
+      }
+
+      function mapChoices(choices) {
+        return choices.map(function (c) {
+          return {
+            text: c.text || "",
+            type: c.type || "win",
+            result: c.result || "",
+          };
+        });
+      }
+
+      function mapPlayer(player, cfg) {
+        const out = {
+          name: player.name || "",
+          situation: player.situation || "",
+          choices: mapChoices(player.choices),
+        };
+        if (cfg.hasFollowUps) {
+          out.goodFollowUp = {
+            choices: mapChoices(player.goodFollowUp.choices),
+          };
+          out.badFollowUp = {
+            choices: mapChoices(player.badFollowUp.choices),
+          };
+        }
+        return out;
+      }
+
+      function toExportJson() {
+        const out = {};
+        for (const roundKey of Object.keys(CONFIG)) {
+          const cfg = CONFIG[roundKey];
+          const src = state[roundKey];
+          out[roundKey] = {};
+          RACES.forEach(function (race) {
+            out[roundKey][race.key] = {
+              playerA: mapPlayer(src[race.key].playerA, cfg),
+              playerB: mapPlayer(src[race.key].playerB, cfg),
+            };
+          });
+        }
+        return out;
+      }
+
+      function normalizeChoiceList(rawChoices, count, allowedTypes) {
+        const list = Array.isArray(rawChoices) ? rawChoices : [];
+        const fallback = defaultType(allowedTypes);
+        return Array.from({ length: count }, function (_, i) {
+          const item = list[i];
+          if (typeof item === "string") {
+            return { text: item, type: fallback, result: "" };
+          }
+          let type =
+            item && allowedTypes.indexOf(item.type) >= 0
+              ? item.type
+              : fallback;
+          // 구버전 fail → lose 호환
+          if (item && item.type === "fail" && allowedTypes.indexOf("lose") >= 0) {
+            type = "lose";
+          }
+          return {
+            text: item && item.text != null ? String(item.text) : "",
+            type: type,
+            result: item && item.result != null ? String(item.result) : "",
+          };
+        });
+      }
+
+      function normalizePlayer(raw, cfg) {
+        const source = raw && typeof raw === "object" ? raw : {};
+        const player = emptyPlayer(cfg);
+        player.name = source.name != null ? String(source.name) : "";
+        player.situation =
+          source.situation != null ? String(source.situation) : "";
+        player.choices = normalizeChoiceList(
+          source.choices,
+          cfg.choiceCount,
+          cfg.types
+        );
+        if (cfg.hasFollowUps) {
+          const goodSrc =
+            source.goodFollowUp && typeof source.goodFollowUp === "object"
+              ? source.goodFollowUp
+              : {};
+          const badSrc =
+            source.badFollowUp && typeof source.badFollowUp === "object"
+              ? source.badFollowUp
+              : {};
+          player.goodFollowUp = {
+            choices: normalizeChoiceList(
+              goodSrc.choices,
+              cfg.goodFollowUp.choiceCount,
+              cfg.goodFollowUp.types
+            ),
+          };
+          player.badFollowUp = {
+            choices: normalizeChoiceList(
+              badSrc.choices,
+              cfg.badFollowUp.choiceCount,
+              cfg.badFollowUp.types
+            ),
+          };
+        }
+        return player;
+      }
+
+      function normalizeImported(data) {
+        const next = {};
+        for (const roundKey of Object.keys(CONFIG)) {
+          const cfg = CONFIG[roundKey];
+          const source =
+            data[roundKey] && typeof data[roundKey] === "object"
+              ? data[roundKey]
+              : {};
+          next[roundKey] = emptyRound(cfg);
+          RACES.forEach(function (race) {
+            const raceSrc =
+              source[race.key] && typeof source[race.key] === "object"
+                ? source[race.key]
+                : {};
+            next[roundKey][race.key] = {
+              playerA: normalizePlayer(raceSrc.playerA, cfg),
+              playerB: normalizePlayer(raceSrc.playerB, cfg),
+            };
+          });
+        }
+        return next;
+      }
+
+      function downloadJson() {
+        const payload = toExportJson();
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const stamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/[:T]/g, "-");
+        a.href = url;
+        a.download = "minigame-choices-" + stamp + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast("JSON 파일을 다운로드했습니다.", "ok");
+      }
+
+      function loadJsonFile(file) {
+        const reader = new FileReader();
+        reader.onload = function () {
+          try {
+            const parsed = JSON.parse(String(reader.result));
+            if (!parsed || typeof parsed !== "object") {
+              throw new Error("잘못된 JSON 형식입니다.");
+            }
+            const normalized = normalizeImported(parsed);
+            state.round32 = normalized.round32;
+            state.round16 = normalized.round16;
+            state.round8 = normalized.round8;
+            renderAll();
+            showToast("JSON을 불러왔습니다.", "ok");
+          } catch (err) {
+            showToast(
+              "불러오기 실패: " + (err.message || "알 수 없는 오류"),
+              "err"
+            );
+          }
+        };
+        reader.onerror = function () {
+          showToast("파일을 읽을 수 없습니다.", "err");
+        };
+        reader.readAsText(file, "UTF-8");
+      }
+
+      function resetAll() {
+        if (!confirm("모든 입력 내용을 초기화할까요?")) return;
+        initState();
+        renderAll();
+        showToast("전체 초기화되었습니다.", "ok");
+      }
+
+      document.querySelector(".tabs").addEventListener("click", function (e) {
+        const btn = e.target.closest("button[data-tab]");
+        if (!btn) return;
+        const tab = btn.getAttribute("data-tab");
+        document.querySelectorAll(".tabs button").forEach(function (b) {
+          b.classList.toggle("active", b === btn);
+        });
+        document.querySelectorAll(".panel").forEach(function (panel) {
+          panel.classList.toggle("active", panel.id === "panel-" + tab);
+        });
+      });
+
+      document.body.addEventListener("input", function (e) {
+        const el = e.target;
+        if (!el.matches("input[data-field], textarea[data-field], select[data-field]")) {
+          return;
+        }
+
+        const round = el.getAttribute("data-round");
+        const race = el.getAttribute("data-race");
+        const playerKey = el.getAttribute("data-player");
+        const field = el.getAttribute("data-field");
+        const player = state[round][race][playerKey];
+
+        if (field === "name" || field === "situation") {
+          player[field] = el.value;
+          return;
+        }
+
+        const branch = el.getAttribute("data-branch");
+        const choiceIndex = Number(el.getAttribute("data-choice"));
+        const targetChoices =
+          branch === "main"
+            ? player.choices
+            : player[branch].choices;
+
+        targetChoices[choiceIndex][field] = el.value;
+
+        if (field === "type") {
+          const focusId = el.id;
+          renderPanel(round);
+          const again = document.getElementById(focusId);
+          if (again) again.focus();
+        } else {
+          updateStatus();
+        }
+      });
+
+      document.getElementById("btnSave").addEventListener("click", downloadJson);
+      document.getElementById("btnReset").addEventListener("click", resetAll);
+      document
+        .getElementById("fileLoad")
+        .addEventListener("change", function (e) {
+          const file = e.target.files && e.target.files[0];
+          if (file) loadJsonFile(file);
+          e.target.value = "";
+        });
+
+      initState();
+      renderAll();
+    })();
+  </script>
+</body>
+</html>

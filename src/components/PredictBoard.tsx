@@ -2,6 +2,8 @@
 
 import { FORM_FIELD_CLASS } from "@/lib/form-styles";
 import { estimatePayout } from "@/lib/prediction-odds";
+import type { WalletPointsLeaderboardEntry } from "@/lib/points";
+import { WalletPointsLeaderboard } from "@/components/WalletPointsLeaderboard";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -56,13 +58,7 @@ type MatchCard = {
   sets: SetCard[];
 };
 
-type PointsLeaderboardEntry = {
-  rank: number;
-  discordUserId: string;
-  displayName: string;
-  points: number;
-  isMe: boolean;
-};
+type PointsLeaderboardEntry = WalletPointsLeaderboardEntry;
 
 type PredictPayload = {
   loggedIn: boolean;
@@ -442,7 +438,7 @@ export function PredictBoard() {
               현재 지갑에 남아 있는 포인트 기준 전체 순위입니다.
             </p>
           </header>
-          <PointsLeaderboardTable rows={data.pointsLeaderboard} />
+          <WalletPointsLeaderboard rows={data.pointsLeaderboard} />
         </section>
       ) : data.matches.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">

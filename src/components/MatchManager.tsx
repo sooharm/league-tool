@@ -11,6 +11,7 @@ import { getTierBracketLabel, TIER_BRACKET_OPTIONS } from "@/lib/tier-brackets";
 import { MapSelect } from "@/components/MapSelect";
 import { formatScheduleDate } from "@/lib/match-display";
 import type { MatchStatus, TierBracket } from "@prisma/client";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 
@@ -218,7 +219,7 @@ export function MatchManager({ initialData }: { initialData: AdminData }) {
 
   return (
     <div className="space-y-6">
-      <Link href="/schedule" className="inline-block text-sm text-[var(--accent)] hover:underline">
+      <Link href={SEASON4_ROUTES.schedule} className="inline-block text-sm text-[var(--accent)] hover:underline">
         ← 일정표
       </Link>
 

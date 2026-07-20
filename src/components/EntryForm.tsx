@@ -5,6 +5,7 @@ import { actingRoleLabel } from "@/lib/entry";
 import type { PlayerRole } from "@prisma/client";
 import { getTierBracketLabel } from "@/lib/standings";
 import type { Race } from "@prisma/client";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -560,7 +561,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
     return (
       <div className="space-y-6">
         <Link
-          href="/entry"
+          href={SEASON4_ROUTES.entry}
           className="inline-block text-sm text-[var(--accent)] hover:underline"
         >
           ← 엔트리 목록
@@ -676,7 +677,7 @@ export function EntryForm({ matchId }: { matchId: string }) {
   return (
     <div className="space-y-6">
       <Link
-        href="/entry"
+        href={SEASON4_ROUTES.entry}
         className="inline-block text-sm text-[var(--accent)] hover:underline"
       >
         ← 엔트리 목록

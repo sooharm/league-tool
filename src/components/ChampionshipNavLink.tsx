@@ -1,9 +1,10 @@
-import { getSelectedSeason, getSeasonMatches } from "@/lib/data";
+import { getSeason4Season, getSeasonMatches } from "@/lib/data";
 import { buildFinalsBracketView } from "@/lib/playoff-bracket";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 
 export async function ChampionshipNavLink() {
-  const season = await getSelectedSeason();
+  const season = await getSeason4Season();
   const matches = season ? await getSeasonMatches(season.id) : [];
   const bracket = buildFinalsBracketView(matches);
   const isChampion = bracket.isComplete && bracket.champion != null;
@@ -14,7 +15,7 @@ export async function ChampionshipNavLink() {
 
   return (
     <Link
-      href="/playoff"
+      href={SEASON4_ROUTES.playoff}
       className={`group relative mt-0.5 inline-flex items-center gap-2 overflow-hidden rounded-2xl border-2 px-5 py-2.5 text-lg font-black tracking-wide transition sm:mt-1 sm:px-7 sm:py-3 sm:text-xl ${
         isChampion
           ? "border-yellow-200/95 bg-gradient-to-br from-yellow-300/35 via-amber-400/30 to-orange-600/45 text-yellow-50 shadow-[0_0_40px_rgba(251,191,36,0.55),0_0_80px_rgba(251,146,60,0.25)] hover:border-yellow-100 hover:shadow-[0_0_56px_rgba(251,191,36,0.7)]"

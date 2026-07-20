@@ -1,5 +1,6 @@
 "use client";
 
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -109,7 +110,7 @@ export function RulesEditor({ initialData }: { initialData: RulesResponse }) {
           다시 불러오기
         </button>
         <Link
-          href="/rules"
+          href={SEASON4_ROUTES.rules}
           className="rounded-lg border border-[var(--card-border)] px-4 py-2 text-sm transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
         >
           규정집 보기

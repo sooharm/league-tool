@@ -11,6 +11,7 @@ import {
 } from "@/lib/match-display";
 import type { ResultInputStatus } from "@/lib/results";
 import type { MatchWithResults } from "@/lib/standings";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -196,7 +197,7 @@ export function MatchResultItem({
           )}
 
           <Link
-            href={`/results/${match.id}`}
+            href={SEASON4_ROUTES.resultsMatch(match.id)}
             className="mt-4 inline-block text-sm text-[var(--accent)] hover:underline"
           >
             {hasResults ? "결과 수정 →" : "결과 입력 →"}
