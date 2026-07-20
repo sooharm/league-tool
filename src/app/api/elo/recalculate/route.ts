@@ -1,15 +1,16 @@
 import { recalculateAllElosFromLeagueResults } from "@/features/elo/calculator";
 import { isEloBoardEnabled } from "@/lib/elo-board/config";
-import { isDevStaffBypassEnabled } from "@/lib/dev-auth";
+import { getAuthContext } from "@/lib/permissions";
 import { NextResponse } from "next/server";
 
 export async function POST() {
   if (!isEloBoardEnabled()) {
-    return NextResponse.json({ error: "Elo System은 로컬 개발에서만 사용할 수 있습니다." }, { status: 404 });
+    return NextResponse.json({ error: "Elo System을 사용할 수 없습니다." }, { status: 404 });
   }
 
-  if (!isDevStaffBypassEnabled()) {
-    return NextResponse.json({ error: "로컬 운영진 모드에서만 동기화할 수 있습니다." }, { status: 403 });
+  const auth = await getAuthContext();
+  if (!auth?.isAdmin) {
+    return NextResponse.json({ error: "관리자만 실행할 수 있습니다." }, { status: 403 });
   }
 
   try {
