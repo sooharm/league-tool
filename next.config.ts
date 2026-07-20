@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
       { source: "/Pro/db", destination: "/Pro", permanent: false },
     ];
   },
+  async rewrites() {
+    return [
+      { source: "/individual", destination: "/Individual" },
+      { source: "/individual/:path*", destination: "/Individual/:path*" },
+    ];
+  },
 };
 
 export default nextConfig;

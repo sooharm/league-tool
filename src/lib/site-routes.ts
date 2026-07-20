@@ -49,7 +49,7 @@ export const SEASON4_ROUTES = {
 } as const;
 
 export const INDIVIDUAL_ROUTES = {
-  root: "/individual",
+  root: "/Individual",
 } as const;
 
 export function isRpPath(pathname: string) {
@@ -62,7 +62,7 @@ export function isNpPath(pathname: string) {
 
 export function isIndividualPath(pathname: string) {
   const normalized = pathname.toLowerCase();
-  return normalized === INDIVIDUAL_ROUTES.root || normalized.startsWith(`${INDIVIDUAL_ROUTES.root}/`);
+  return normalized === "/individual" || normalized.startsWith("/individual/");
 }
 
 export function isProPath(pathname: string) {
