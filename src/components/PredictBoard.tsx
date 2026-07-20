@@ -2,6 +2,8 @@
 
 import { FORM_FIELD_CLASS } from "@/lib/form-styles";
 import { estimatePayout } from "@/lib/prediction-odds";
+import type { WalletPointsLeaderboardEntry } from "@/lib/points";
+import { WalletPointsLeaderboard } from "@/components/WalletPointsLeaderboard";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -56,13 +58,7 @@ type MatchCard = {
   sets: SetCard[];
 };
 
-type PointsLeaderboardEntry = {
-  rank: number;
-  discordUserId: string;
-  displayName: string;
-  points: number;
-  isMe: boolean;
-};
+type PointsLeaderboardEntry = WalletPointsLeaderboardEntry;
 
 type PredictPayload = {
   loggedIn: boolean;
@@ -95,51 +91,6 @@ function betStatusLabel(status: string) {
 
 function playerLabel(player: PlayerInfo) {
   return `${player.nickname} (T${player.tier})`;
-}
-
-function PointsLeaderboardTable({ rows }: { rows: PointsLeaderboardEntry[] }) {
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-[var(--muted)]">
-        아직 보유 포인트 기록이 없습니다. Discord 로그인 후 배팅에 참여해 보세요.
-      </p>
-    );
-  }
-
-  return (
-    <div className="overflow-x-auto rounded-xl border border-[var(--card-border)]">
-      <table className="min-w-full text-sm">
-        <thead className="border-b border-[var(--card-border)] bg-[var(--background)]/50 text-left text-[var(--muted)]">
-          <tr>
-            <th className="px-4 py-3 font-medium">순위</th>
-            <th className="px-4 py-3 font-medium">닉네임</th>
-            <th className="px-4 py-3 text-right font-medium">보유 포인트</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={row.discordUserId}
-              className={`border-b border-[var(--card-border)] last:border-b-0 transition ${
-                row.isMe ? "bg-[var(--accent)]/10" : "hover:bg-[var(--background)]/40"
-              }`}
-            >
-              <td className="px-4 py-3 text-[var(--muted)]">{row.rank}</td>
-              <td className="px-4 py-3 font-medium text-[var(--foreground)]">
-                {row.displayName}
-                {row.isMe ? (
-                  <span className="ml-2 text-xs font-normal text-[var(--accent)]">나</span>
-                ) : null}
-              </td>
-              <td className="px-4 py-3 text-right font-semibold tabular-nums text-[var(--accent)]">
-                {row.points} P
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 function CheckIcon() {
@@ -442,7 +393,7 @@ export function PredictBoard() {
               현재 지갑에 남아 있는 포인트 기준 전체 순위입니다.
             </p>
           </header>
-          <PointsLeaderboardTable rows={data.pointsLeaderboard} />
+          <WalletPointsLeaderboard rows={data.pointsLeaderboard} />
         </section>
       ) : data.matches.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">

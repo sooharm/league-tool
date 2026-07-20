@@ -3,6 +3,7 @@
 import { FORM_SELECT_CLASS } from "@/lib/form-styles";
 import { ROLE_OPTIONS, roleLabel, TIERS } from "@/lib/roster";
 import type { PlayerRole, Race } from "@prisma/client";
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
@@ -317,7 +318,7 @@ export function RosterManager({
             새로고침
           </button>
           <Link
-            href="/roster"
+            href={SEASON4_ROUTES.roster}
             className="rounded-lg border border-[var(--card-border)] px-3 py-1.5 text-sm hover:border-[var(--accent)]"
           >
             로스터 보기

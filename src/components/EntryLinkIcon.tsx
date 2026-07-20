@@ -1,3 +1,4 @@
+import { SEASON4_ROUTES } from "@/lib/site-routes";
 import Link from "next/link";
 
 function EntryIcon() {
@@ -24,7 +25,7 @@ function EntryIcon() {
 export function EntrySubmitLink({ matchId }: { matchId: string }) {
   return (
     <Link
-      href={`/entry/${matchId}`}
+      href={SEASON4_ROUTES.entryMatch(matchId)}
       title="엔트리제출"
       aria-label="엔트리제출"
       className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--accent)]/60 bg-[var(--accent)]/15 px-3 py-1.5 text-sm font-semibold text-[var(--accent)] shadow-[0_0_12px_rgba(245,158,11,0.15)] transition hover:border-[var(--accent)] hover:bg-[var(--accent)]/25 hover:shadow-[0_0_16px_rgba(245,158,11,0.3)]"

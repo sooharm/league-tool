@@ -1,4 +1,5 @@
-import { getSelectedSeason } from "@/lib/data";
+import { getSeasonBySlug, getSelectedSeason } from "@/lib/data";
+import { DEFAULT_PRO_LEAGUE_SEASON_SLUG } from "@/lib/season-selection";
 import {
   defaultSets,
   type MatchAdminInput,
@@ -23,8 +24,21 @@ export async function getActiveSeasonForMatchAdmin() {
     return null;
   }
 
+  return getSeasonForMatchAdmin(season.id);
+}
+
+export async function getSeason4ForMatchAdmin() {
+  const season = await getSeasonBySlug(DEFAULT_PRO_LEAGUE_SEASON_SLUG);
+  if (!season) {
+    return null;
+  }
+
+  return getSeasonForMatchAdmin(season.id);
+}
+
+async function getSeasonForMatchAdmin(seasonId: string) {
   return prisma.season.findUnique({
-    where: { id: season.id },
+    where: { id: seasonId },
     include: {
       teams: {
         orderBy: { sortOrder: "asc" },
@@ -112,6 +126,7 @@ export async function createMatch(seasonId: string, input: MatchAdminInput) {
       awayTeamId: input.awayTeamId,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       status: input.status,
+      countsTowardStandings: input.countsTowardStandings !== false,
     },
   });
 
@@ -149,6 +164,7 @@ export async function updateMatch(matchId: string, input: MatchAdminInput) {
       awayTeamId: input.awayTeamId,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
       status: input.status,
+      countsTowardStandings: input.countsTowardStandings !== false,
     },
   });
 
@@ -190,6 +206,7 @@ export function matchToAdminInput(
     awayTeamId: match.awayTeamId,
     scheduledAt: match.scheduledAt?.toISOString() ?? null,
     status: match.status as MatchStatus,
+    countsTowardStandings: match.countsTowardStandings,
     sets: match.sets.map((set) => ({
       id: set.id,
       orderIndex: set.orderIndex,

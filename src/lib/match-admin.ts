@@ -23,6 +23,8 @@ export type MatchAdminInput = {
   awayTeamId: string;
   scheduledAt: string | null;
   status: MatchStatus;
+  /** false = 플레이오프 등 — 개인/팀 순위 집계에서 제외 */
+  countsTowardStandings: boolean;
   sets: SetAdminInput[];
 };
 

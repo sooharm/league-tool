@@ -4,6 +4,7 @@ import {
   getConfirmedByForTeam,
   getOrCreateMatchEntry,
   loadEntryMatch,
+  resolvePlayoffRoundLabelForMatch,
   toEntryContext,
 } from "@/lib/entry-api";
 import { canSaveOrConfirm, isPublished } from "@/lib/entry";
@@ -81,6 +82,8 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ error: "엔트리를 불러오지 못했습니다." }, { status: 500 });
   }
 
+  const playoffRoundLabel = await resolvePlayoffRoundLabelForMatch(refreshed);
+
   return NextResponse.json(
     buildEntryResponse({
       entry: updatedEntry,
@@ -89,6 +92,7 @@ export async function POST(request: Request, context: RouteContext) {
       viewerTeamId: teamId,
       viewerRole,
       isAdmin: authResult.isAdmin,
+      playoffRoundLabel,
     }),
   );
 }

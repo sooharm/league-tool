@@ -1,5 +1,5 @@
-import { prisma } from "@/lib/prisma";
-import { SEASON_COOKIE } from "@/lib/season-selection";
+import { prisma, ensurePrismaConnection } from "@/lib/prisma";
+import { INDIVIDUAL_LEAGUE_SEASON_SLUG, SEASON_COOKIE, DEFAULT_PRO_LEAGUE_SEASON_SLUG } from "@/lib/season-selection";
 import { cookies } from "next/headers";
 import { isVisibleOnScheduleTab } from "@/lib/schedule";
 import { calculateMapStats } from "@/lib/map-stats";
@@ -89,10 +89,11 @@ const seasonWithTeamsInclude = {
 };
 
 export async function getSelectedSeason() {
+  await ensurePrismaConnection();
   const cookieStore = await cookies();
   const slug = cookieStore.get(SEASON_COOKIE)?.value;
 
-  if (slug) {
+  if (slug && slug !== INDIVIDUAL_LEAGUE_SEASON_SLUG) {
     const selected = await prisma.season.findUnique({
       where: { slug },
       include: seasonWithTeamsInclude,
@@ -108,8 +109,40 @@ export async function getSelectedSeason() {
   });
 }
 
+export async function getSelectedSeasonSlug(fallback = "season-4") {
+  await ensurePrismaConnection();
+  const cookieStore = await cookies();
+  const slug = cookieStore.get(SEASON_COOKIE)?.value;
+
+  if (slug && slug !== INDIVIDUAL_LEAGUE_SEASON_SLUG) {
+    const selected = await prisma.season.findUnique({
+      where: { slug },
+      select: { slug: true },
+    });
+    if (selected) {
+      return selected.slug;
+    }
+  }
+
+  const active = await prisma.season.findFirst({
+    where: { isActive: true },
+    select: { slug: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return active?.slug ?? fallback;
+}
+
 export async function getActiveSeason() {
   return getSelectedSeason();
+}
+
+export async function getSeason4Season() {
+  await ensurePrismaConnection();
+  return prisma.season.findUnique({
+    where: { slug: DEFAULT_PRO_LEAGUE_SEASON_SLUG },
+    include: seasonWithTeamsInclude,
+  });
 }
 
 export async function getSeasonBySlug(slug: string) {
@@ -130,6 +163,7 @@ export async function getSeasonBySlug(slug: string) {
 }
 
 export async function getAllSeasons() {
+  await ensurePrismaConnection();
   return prisma.season.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -138,6 +172,28 @@ export async function getAllSeasons() {
 export async function getSeasonMatches(seasonId: string) {
   return prisma.match.findMany({
     where: { seasonId },
+    include: matchInclude,
+    orderBy: [{ week: "asc" }, { scheduledAt: "asc" }],
+  });
+}
+
+/** 개인/팀 순위 집계용 — 플레이오프 등 countsTowardStandings=false 제외 */
+export async function getSeasonRankingMatches(seasonId: string) {
+  const matches = await getSeasonMatches(seasonId);
+  return matches.filter((match) => match.countsTowardStandings);
+}
+
+/** 플레이오프/결승 등 순위 미반영 경기 */
+export async function getSeasonPlayoffMatches(seasonId: string) {
+  return prisma.match.findMany({
+    where: { seasonId, countsTowardStandings: false },
+    include: matchInclude,
+    orderBy: [{ scheduledAt: "asc" }, { week: "asc" }],
+  });
+}
+
+export async function getAllLeagueMatches() {
+  return prisma.match.findMany({
     include: matchInclude,
     orderBy: [{ week: "asc" }, { scheduledAt: "asc" }],
   });
@@ -175,7 +231,7 @@ export async function getSeasonStandings(seasonId: string) {
       where: { seasonId },
       orderBy: { sortOrder: "asc" },
     }),
-    getSeasonMatches(seasonId),
+    getSeasonRankingMatches(seasonId),
   ]);
 
   const standings = calculateTeamStandings(teams, matches as MatchWithResults[]);
@@ -198,7 +254,7 @@ export async function getSeasonPlayerStandings(seasonId: string) {
       where: { team: { seasonId }, isActive: true },
       include: { team: true },
     }),
-    getSeasonMatches(seasonId),
+    getSeasonRankingMatches(seasonId),
   ]);
 
   return calculatePlayerDetailStandings(players, matches as MatchWithResults[]);

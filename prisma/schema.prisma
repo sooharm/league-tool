@@ -87,6 +87,7 @@ model Player {
   role          PlayerRole @default(MEMBER)
   isActive      Boolean    @default(true)
   discordUserId String?    @unique
+  elo           Int        @default(1000)
 
   team       Team        @relation(fields: [teamId], references: [id], onDelete: Cascade)
   wonSets    SetResult[] @relation("WinnerPlayer")
@@ -109,6 +110,7 @@ model Match {
   bjName      String?
   vodUrl      String?
   status      MatchStatus @default(SCHEDULED)
+  countsTowardStandings Boolean @default(true)
   sixManEntryHome Boolean @default(false)
   sixManEntryAway Boolean @default(false)
   createdAt   DateTime    @default(now())
@@ -141,14 +143,17 @@ model Set {
 }
 
 model SetResult {
-  id             String   @id @default(cuid())
-  setId          String   @unique
+  id             String    @id @default(cuid())
+  setId          String    @unique
   winnerTeamId   String
   loserTeamId    String
   winnerPlayerId String
   loserPlayerId  String?
-  isForfeit      Boolean  @default(false)
-  playedAt       DateTime @default(now())
+  isForfeit      Boolean   @default(false)
+  playedAt       DateTime  @default(now())
+  eloWinnerDelta Int?
+  eloLoserDelta  Int?
+  eloAppliedAt   DateTime?
 
   set          Set     @relation(fields: [setId], references: [id], onDelete: Cascade)
   winnerTeam   Team    @relation("WinnerTeam", fields: [winnerTeamId], references: [id])
@@ -215,4 +220,15 @@ model SetPrediction {
   @@unique([setId, discordUserId])
   @@index([setId])
   @@index([discordUserId])
+}
+
+model ClanMember {
+  id        String   @id @default(cuid())
+  nickname  String   @unique
+  race      Race
+  tier      Int
+  rp        Int      @default(1000)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

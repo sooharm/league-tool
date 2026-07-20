@@ -1,4 +1,5 @@
-import { getSelectedSeason } from "@/lib/data";
+import { getSeasonBySlug, getSelectedSeason } from "@/lib/data";
+import { DEFAULT_PRO_LEAGUE_SEASON_SLUG } from "@/lib/season-selection";
 import { isLeadershipRole } from "@/lib/entry";
 import { parsePlayerInput, type PlayerInput } from "@/lib/roster";
 import { prisma } from "@/lib/prisma";
@@ -6,9 +7,15 @@ import type { PlayerRole } from "@prisma/client";
 
 export async function getActiveSeasonRoster() {
   const season = await getSelectedSeason();
+  return season ? mapSeasonToRoster(season) : null;
+}
 
-  if (!season) return null;
+export async function getSeason4Roster() {
+  const season = await getSeasonBySlug(DEFAULT_PRO_LEAGUE_SEASON_SLUG);
+  return season ? mapSeasonToRoster(season) : null;
+}
 
+function mapSeasonToRoster(season: NonNullable<Awaited<ReturnType<typeof getSelectedSeason>>>) {
   return {
     season: {
       id: season.id,
