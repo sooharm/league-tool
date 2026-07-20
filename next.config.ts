@@ -11,8 +11,6 @@ const nextConfig: NextConfig = {
       { source: "/season5/np", destination: "/NP", permanent: false },
       { source: "/season5", destination: "/NP/minigame", permanent: false },
       { source: "/season5/:path*", destination: "/NP/:path*", permanent: false },
-      { source: "/Individual", destination: "/individual", permanent: false },
-      { source: "/Individual/:path*", destination: "/individual/:path*", permanent: false },
       { source: "/entry", destination: "/season4/entry", permanent: false },
       { source: "/entry/:path*", destination: "/season4/entry/:path*", permanent: false },
       { source: "/predict", destination: "/season4/predict", permanent: false },
